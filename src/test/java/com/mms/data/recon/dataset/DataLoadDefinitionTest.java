@@ -186,4 +186,34 @@ class DataLoadDefinitionTest {
 
         assertEquals("SELECT 1 AS \"MigrationKey\"", definition.resolveQueryStatement(DatasourceType.postgres));
     }
+
+    @Test
+    void inlineQueryIsUsedForPostgresMongoAndBigQuery() {
+        DataLoadDefinition postgres = new DataLoadDefinition();
+        postgres.setTable("party");
+        postgres.setQuery("""
+                SELECT party_id AS "MigrationKey", party_name, country_code, status
+                FROM landing.party
+                WHERE status = 'ACTIVE'
+                """);
+        assertEquals(
+                "SELECT party_id AS \"MigrationKey\", party_name, country_code, status\n"
+                        + "FROM landing.party\n"
+                        + "WHERE status = 'ACTIVE'",
+                postgres.resolveQueryStatement(DatasourceType.postgres)
+        );
+
+        DataLoadDefinition mongo = new DataLoadDefinition();
+        mongo.setCollection("party");
+        mongo.setQuery("{ \"status\": \"ACTIVE\" }");
+        assertEquals("{ \"status\": \"ACTIVE\" }", mongo.resolveQueryStatement(DatasourceType.mongo));
+
+        DataLoadDefinition bigquery = new DataLoadDefinition();
+        bigquery.setTable("party");
+        bigquery.setQuery("SELECT party_id AS MigrationKey, party_name FROM party WHERE status = 'ACTIVE'");
+        assertEquals(
+                "SELECT party_id AS MigrationKey, party_name FROM party WHERE status = 'ACTIVE'",
+                bigquery.resolveQueryStatement(DatasourceType.bigquery)
+        );
+    }
 }

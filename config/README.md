@@ -61,6 +61,7 @@ java -Dmicronaut.config.files=config/combinations/party-pg-pg.yml -jar target/da
 | `party-bigquery-mongo` | party | bigquery-mongo | BigQuery `bq` | MongoDB `mongo` | SINGLE `party_id` | MISMATCH_DETAILS |
 | `party-bigquery-bigquery` | party | bigquery-bigquery | BigQuery `bq` | BigQuery `bq` | SINGLE `party_id` | MISMATCH_DETAILS |
 | `account-pg-pg` | account | pg-pg | PostgreSQL `landing.account` | PostgreSQL `master.account` | SINGLE `account_id` | COUNTS |
+| `party-query` | party | pg-pg-query, pg-mongo-query, pg-bigquery-query | Inline PostgreSQL SQL, Mongo JSON filter, BigQuery SQL | same | SINGLE `party_id` | MISMATCH_DETAILS |
 
 Shared named datasources (already in `application.yml`): `landing`, `master` (PostgreSQL), `mongo`, `bq`, `csv`, `xlsx`.
 Copies also live in `config/datasources.yml` / `config/datasources.properties`.

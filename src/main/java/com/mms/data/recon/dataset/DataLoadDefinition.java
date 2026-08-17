@@ -12,6 +12,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+/**
+ * Source or target load. Prefer {@code schema}/{@code table}/{@code fields} (SQL is generated)
+ * or, when you need joins/filters, set {@code query} directly:
+ * PostgreSQL and BigQuery use SQL that aliases the key as {@code MigrationKey};
+ * MongoDB uses a JSON filter (still set {@code collection} and {@code fields}).
+ * {@code query} wins over generated SQL. {@code queryFile} is used only when {@code query} is blank.
+ */
 public class DataLoadDefinition {
 
     public static final String MIGRATION_KEY_COLUMN_NAME = "MigrationKey";

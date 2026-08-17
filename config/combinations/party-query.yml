@@ -1,0 +1,71 @@
+# party / inline queries
+# Optional alternative to schema/table (PostgreSQL, BigQuery SQL) or a Mongo JSON filter.
+# SQL must return a column aliased as MigrationKey, then comparable fields in order.
+mms:
+  recon:
+    domains:
+      party:
+        profiles:
+          pg-pg-query:
+            datasources:
+              source: landing
+              target: landing
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            recon:
+              mode: MISMATCH_DETAILS
+            source:
+              query: >
+                SELECT party_id AS "MigrationKey", party_name, country_code, status
+                FROM landing.party
+                WHERE status = 'ACTIVE'
+              fields: [party_name, country_code, status]
+            target:
+              query: >
+                SELECT party_id AS "MigrationKey", party_name, country_code, status
+                FROM master.party
+                WHERE status = 'ACTIVE'
+              fields: [party_name, country_code, status]
+
+          pg-mongo-query:
+            datasources:
+              source: landing
+              target: mongo
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            recon:
+              mode: MISMATCH_DETAILS
+            source:
+              query: >
+                SELECT party_id AS "MigrationKey", party_name, country_code, status
+                FROM landing.party
+                WHERE status = 'ACTIVE'
+              fields: [party_name, country_code, status]
+            target:
+              collection: party
+              fields: [party_name, country_code, status]
+              query: '{ "status": "ACTIVE" }'
+
+          pg-bigquery-query:
+            datasources:
+              source: landing
+              target: bq
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            recon:
+              mode: MISMATCH_DETAILS
+            source:
+              query: >
+                SELECT party_id AS "MigrationKey", party_name, country_code, status
+                FROM landing.party
+                WHERE status = 'ACTIVE'
+              fields: [party_name, country_code, status]
+            target:
+              query: >
+                SELECT party_id AS MigrationKey, party_name, country_code, status
+                FROM party
+                WHERE status = 'ACTIVE'
+              fields: [party_name, country_code, status]

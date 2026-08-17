@@ -8,6 +8,7 @@ import java.util.List;
 /**
  * Source or target side of a profile. Datasource is a catalog name
  * ({@code landing}, {@code csv}, …), not a new connection definition.
+ * Optional {@code query} is PostgreSQL/BigQuery SQL or a Mongo JSON filter.
  */
 public class SideRequest {
 

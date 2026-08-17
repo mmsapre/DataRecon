@@ -9,6 +9,10 @@ MongoDB loads:
     queries/<dataset-id>-target.json
 or '{}' when the JSON file is absent.
 
+Optional YAML (or API) `query` on source/target is used first when set:
+    PostgreSQL / BigQuery: SQL that returns "MigrationKey" plus comparable columns
+    MongoDB: JSON filter document (`collection` and `fields` still required)
+
 PostgreSQL queries MUST return one unique column aliased as "MigrationKey".
 MongoDB definitions set `collection`, `migrationKey`, and `fields`.
 `fields` order MUST match the PostgreSQL SELECT columns after MigrationKey.

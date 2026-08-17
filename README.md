@@ -229,6 +229,48 @@ mms.recon.domains.party.profiles.pg-mongo.target.query={}
 `migrationKey.type`: `SINGLE` | `COMPOSITE` | `DEFINED`  
 `recon.mode`: `COUNTS` | `MISMATCH_DETAILS` | `FIELD_DETAILS`
 
+When table/column mapping is not enough (joins, filters, expressions), set **`query`** on
+source and/or target. It is optional; when present it wins over generated SQL from
+`schema` / `table` / `fields`. Or set `queryFile` to a `.sql` / `.json` path.
+
+| Type | `query` |
+|---|---|
+| PostgreSQL | SQL. Must alias the key as `"MigrationKey"`, then comparable columns in `fields` order |
+| BigQuery | SQL. Alias as `MigrationKey` (Calcite). Same column contract |
+| MongoDB | JSON filter document. Still set `collection` and `fields`. `{}` is all documents |
+
+```yaml
+# config/combinations/party-query.yml
+source:
+  query: >
+    SELECT party_id AS "MigrationKey", party_name, country_code, status
+    FROM landing.party
+    WHERE status = 'ACTIVE'
+  fields: [party_name, country_code, status]
+target:
+  query: >
+    SELECT party_id AS "MigrationKey", party_name, country_code, status
+    FROM master.party
+    WHERE status = 'ACTIVE'
+  fields: [party_name, country_code, status]
+```
+
+```yaml
+target:
+  collection: party
+  fields: [party_name, country_code, status]
+  query: '{ "status": "ACTIVE" }'
+```
+
+```yaml
+target:
+  query: >
+    SELECT party_id AS MigrationKey, party_name, country_code, status
+    FROM party
+    WHERE status = 'ACTIVE'
+  fields: [party_name, country_code, status]
+```
+
 Optional domain `schedule` triggers every profile on an interval. Optional profile
 `schedule` triggers that pairing only.
 
@@ -362,6 +404,11 @@ curl -u admin:admin -X PUT http://localhost:8080/api/domains/party/profiles/pg-c
 curl -u admin:admin -X PUT http://localhost:8080/api/domains/party/profiles/pg-csv/source \
   -H 'Content-Type: application/json' \
   -d '{"schema":"public","table":"party_landing","fields":["party_name","status"]}'
+
+# Optional: provide the query instead of schema/table (PostgreSQL / BigQuery SQL, Mongo JSON filter)
+curl -u admin:admin -X PUT http://localhost:8080/api/domains/party/profiles/pg-pg/source \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"SELECT party_id AS \"MigrationKey\", party_name, status FROM landing.party","fields":["party_name","status"]}'
 ```
 
 Recon mode is set on the profile (or domain) and can be overridden when triggering a run:
@@ -527,7 +574,8 @@ migrationKey:
   expression: "concat(party_id, '-', country_code)"
 ```
 
-Omit `schema` to use an unqualified table name (`FROM party`). Custom SQL must still return:
+Omit `schema` to use an unqualified table name (`FROM party`). To supply SQL or a Mongo
+filter yourself, set `query` (or `queryFile`) on that side. Custom SQL must still return:
 
 ```sql
 SELECT
