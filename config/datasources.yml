@@ -1,0 +1,36 @@
+# Named source/target datasources. Overlay with a combination file.
+mms:
+  recon:
+    postgres:
+      datasources:
+        landing:
+          host: ${PG_HOST:localhost}
+          port: ${PG_PORT:5432}
+          database: ${PG_DB:data}
+          username: ${PG_USER:postgres}
+          password: ${PG_PASSWORD:postgres}
+          max-size: 10
+        master:
+          host: ${PG_HOST:localhost}
+          port: ${PG_PORT:5432}
+          database: ${PG_DB:data}
+          username: ${PG_USER:postgres}
+          password: ${PG_PASSWORD:postgres}
+          max-size: 10
+    mongodb:
+      datasources:
+        mongo:
+          uri: ${MONGO_URI:mongodb://localhost:27017}
+          database: ${MONGO_DB:data}
+          username: ${MONGO_USER:}
+          password: ${MONGO_PASSWORD:}
+          auth-database: ${MONGO_AUTH_DB:admin}
+    bigquery:
+      datasources:
+        bq:
+          jdbc-url: ${BQ_JDBC_URL:}
+          driver-class-name: ${BQ_JDBC_DRIVER:com.simba.googlebigquery.jdbc.Driver}
+          project-id: ${BQ_PROJECT:}
+          dataset: ${BQ_DATASET:master}
+          credentials-file: ${BQ_CREDENTIALS:}
+          calcite-schema: bq

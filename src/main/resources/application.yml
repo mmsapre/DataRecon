@@ -1,0 +1,242 @@
+micronaut:
+  application:
+    name: data-recon
+
+  server:
+    port: 8080
+
+  security:
+    enabled: true
+    authentication: basic
+    intercept-url-map:
+      - pattern: /health/**
+        access:
+          - isAnonymous()
+      - pattern: /**
+        access:
+          - isAuthenticated()
+
+flyway:
+  datasources:
+    default:
+      enabled: true
+      create-schema: true
+      default-schema: ${mms.recon.database.schema:public}
+      schemas:
+        - ${mms.recon.database.schema:public}
+      placeholders:
+        runTable: ${mms.recon.database.tables.run:rec_run}
+        recordTable: ${mms.recon.database.tables.record:rec_record}
+
+mms:
+  recon:
+    auth:
+      username: ${DATA_RECON_USER:admin}
+      password: ${DATA_RECON_PASSWORD:admin}
+
+    build:
+      version: ${MMS_RECON_VERSION:dev}
+
+    # PostgreSQL store for rec_run / rec_record. Schema and table names are configurable.
+    database:
+      host: ${DATA_RECON_DB_HOST:localhost}
+      port: ${DATA_RECON_DB_PORT:5432}
+      name: ${DATA_RECON_DB_NAME:data_recon}
+      username: ${DATA_RECON_DB_USER:postgres}
+      password: ${DATA_RECON_DB_PASSWORD:postgres}
+      maximum-pool-size: 5
+      schema: ${DATA_RECON_DB_SCHEMA:public}
+      tables:
+        run: ${DATA_RECON_DB_RUN_TABLE:rec_run}
+        record: ${DATA_RECON_DB_RECORD_TABLE:rec_record}
+
+    # Optional. When url and api-key are both set, Data Recon can summarize run results via an
+    # OpenAI-compatible chat completions API. Either value can also be passed on POST /summary.
+    llm:
+      url: ${DATA_RECON_LLM_URL:}
+      api-key: ${DATA_RECON_LLM_API_KEY:}
+      model: ${DATA_RECON_LLM_MODEL:gpt-4o-mini}
+      timeout-seconds: 30
+      max-records: 50
+
+    postgres:
+      datasources:
+        landing:
+          host: ${PG_HOST:localhost}
+          port: ${PG_PORT:5432}
+          database: ${PG_DB:data}
+          username: ${PG_USER:postgres}
+          password: ${PG_PASSWORD:postgres}
+          max-size: 10
+
+        master:
+          host: ${PG_HOST:localhost}
+          port: ${PG_PORT:5432}
+          database: ${PG_DB:data}
+          username: ${PG_USER:postgres}
+          password: ${PG_PASSWORD:postgres}
+          max-size: 10
+
+    mongodb:
+      datasources:
+        mongo:
+          uri: ${MONGO_URI:mongodb://localhost:27017}
+          database: ${MONGO_DB:data}
+          username: ${MONGO_USER:}
+          password: ${MONGO_PASSWORD:}
+          auth-database: ${MONGO_AUTH_DB:admin}
+
+    # BigQuery is queried only through Apache Calcite (JDBC adapter + BigQuery dialect).
+    # Add a BigQuery JDBC driver on the runtime classpath as transport; no Google client SDK is used.
+    bigquery:
+      datasources:
+        bq:
+          jdbc-url: ${BQ_JDBC_URL:}
+          driver-class-name: ${BQ_JDBC_DRIVER:com.simba.googlebigquery.jdbc.Driver}
+          project-id: ${BQ_PROJECT:}
+          dataset: ${BQ_DATASET:master}
+          credentials-file: ${BQ_CREDENTIALS:}
+          calcite-schema: bq
+
+    defaults:
+      batchSize: 1000
+      batchConcurrency: 5
+      hashingStrategy: TypeLenient
+      queryFileBaseDir: queries
+      reconMode: MISMATCH_DETAILS
+
+    # Define domains, attach named datasources to each profile, and set the
+    # profile migration key (enum: SINGLE | COMPOSITE | DEFINED).
+    domains:
+      party:
+        profiles:
+          pg-pg:
+            datasources:
+              source: landing
+              target: landing
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            recon:
+              mode: MISMATCH_DETAILS
+            source:
+              schema: landing
+              table: party
+              fields: [party_name, country_code, status]
+            target:
+              schema: master
+              table: party
+              fields: [party_name, country_code, status]
+
+          pg-pg-same-schema:
+            datasources:
+              source: landing
+              target: landing
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            source:
+              schema: public
+              table: party_landing
+              fields: [party_name, country_code, status]
+            target:
+              schema: public
+              table: party_master
+              fields: [party_name, country_code, status]
+
+          pg-pg-composite:
+            datasources:
+              source: landing
+              target: landing
+            migrationKey:
+              type: COMPOSITE
+              columns: [party_id, country_code]
+              separator: "|"
+            recon:
+              mode: FIELD_DETAILS
+              conditionFields: [party_name, status]
+            source:
+              schema: landing
+              table: party
+              fields: [party_name, status]
+            target:
+              schema: master
+              table: party
+              fields: [party_name, status]
+
+          pg-mongo:
+            datasources:
+              source: landing
+              target: mongo
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            source:
+              schema: landing
+              table: party
+              fields: [party_name, country_code, status]
+            target:
+              collection: party
+              fields: [party_name, country_code, status]
+              query: '{}'
+
+          pg-bigquery:
+            datasources:
+              source: landing
+              target: bq
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            source:
+              schema: landing
+              table: party
+              fields: [party_name, country_code, status]
+            target:
+              table: party
+              fields: [party_name, country_code, status]
+
+          mongo-pg:
+            datasources:
+              source: mongo
+              target: landing
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            source:
+              collection: party
+              fields: [party_name, country_code, status]
+              query: '{}'
+            target:
+              schema: master
+              table: party
+              fields: [party_name, country_code, status]
+
+          bigquery-pg:
+            datasources:
+              source: bq
+              target: landing
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            source:
+              table: party
+              fields: [party_name, country_code, status]
+            target:
+              schema: master
+              table: party
+              fields: [party_name, country_code, status]
+
+          mongo-bigquery:
+            datasources:
+              source: mongo
+              target: bq
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            source:
+              collection: party
+              fields: [party_name, country_code, status]
+              query: '{}'
+            target:
+              table: party
+              fields: [party_name, country_code, status]

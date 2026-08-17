@@ -1,0 +1,23 @@
+# party / bigquery-mongo
+# BigQuery bq.party -> MongoDB mongo.party (Calcite)
+mms:
+  recon:
+    domains:
+      party:
+        profiles:
+          bigquery-mongo:
+            datasources:
+              source: bq
+              target: mongo
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            recon:
+              mode: MISMATCH_DETAILS
+            source:
+              table: party
+              fields: [party_name, country_code, status]
+            target:
+              collection: party
+              fields: [party_name, country_code, status]
+              query: '{}'

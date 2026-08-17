@@ -1,0 +1,175 @@
+package com.mms.data.recon.recrun;
+
+import com.mms.data.recon.config.RecConfiguration;
+import com.mms.data.recon.dataset.DataLoadDefinition;
+import com.mms.data.recon.dataset.DatasetConfiguration;
+import com.mms.data.recon.dataset.DatasetRecService;
+import com.mms.data.recon.dataset.DomainConfiguration;
+import com.mms.data.recon.dataset.HashingStrategy;
+import com.mms.data.recon.dataset.InMemoryRecStores;
+import org.junit.jupiter.api.Test;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class RecRunServiceTest {
+
+    @Test
+    void throwsOnUnknownProfile() {
+        RecRunService service = new RecRunService(
+                new RecConfiguration(),
+                new DatasetRecService(
+                        new InMemoryRecStores.ScriptedRowLoader(),
+                        new InMemoryRecStores.MemoryRecRunRepository(),
+                        new InMemoryRecStores.MemoryRecRecordRepository()
+                ),
+                new InMemoryRecStores.MemoryRecRunRepository(),
+                new InMemoryRecStores.MemoryRecRecordRepository()
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> service.runProfile("party", "missing").block());
+    }
+
+    @Test
+    void runProfileDelegatesToDatasetServiceAndListsResults() {
+        RecConfiguration configuration = configurationWithProfiles(
+                InMemoryRecStores.profile("party", "pg-pg", "source", "target")
+        );
+
+        InMemoryRecStores.MemoryRecRunRepository runs = new InMemoryRecStores.MemoryRecRunRepository();
+        InMemoryRecStores.MemoryRecRecordRepository records = new InMemoryRecStores.MemoryRecRecordRepository();
+        DatasetRecService recService = new DatasetRecService(
+                new InMemoryRecStores.ScriptedRowLoader()
+                        .put("source", List.of(InMemoryRecStores.row("k", "v")))
+                        .put("target", List.of(InMemoryRecStores.row("k", "v"))),
+                runs,
+                records
+        );
+        RecRunService service = new RecRunService(configuration, recService, runs, records);
+
+        Long runId = service.runProfile("party", "pg-pg").block();
+        assertEquals(1L, runId);
+        assertEquals(1, service.profileRuns("party", "pg-pg").size());
+        assertEquals("pg-pg", service.profileRuns("party", "pg-pg").get(0).profileId());
+        assertTrue(service.profileRuns("party", "pg-pg").get(0).active());
+        assertEquals(1, service.profileRuns("party", "pg-pg").get(0).matched());
+        assertEquals(0, service.records(runId, "MATCHED").size());
+    }
+
+    @Test
+    void runDomainTriggersEveryProfileAndAggregatesResults() {
+        RecConfiguration configuration = configurationWithProfiles(
+                InMemoryRecStores.profile("party", "pg-pg", "landing", "master"),
+                InMemoryRecStores.profile("party", "pg-mongo", "landing", "mongo")
+        );
+
+        InMemoryRecStores.MemoryRecRunRepository runs = new InMemoryRecStores.MemoryRecRunRepository();
+        InMemoryRecStores.MemoryRecRecordRepository records = new InMemoryRecStores.MemoryRecRecordRepository();
+        DatasetRecService recService = new DatasetRecService(
+                new InMemoryRecStores.ScriptedRowLoader()
+                        .put("landing", List.of(InMemoryRecStores.row("k", "v")))
+                        .put("master", List.of(InMemoryRecStores.row("k", "v")))
+                        .put("mongo", List.of(InMemoryRecStores.row("k", "v"))),
+                runs,
+                records
+        );
+        RecRunService service = new RecRunService(configuration, recService, runs, records);
+
+        RecRunService.DomainRunResult result = service.runDomain("party").block();
+        assertEquals("party", result.domainId());
+        assertEquals(1L, result.domainRunId());
+        assertEquals(2, result.runIds().size());
+        assertEquals(2L, result.runIds().get("pg-pg"));
+        assertEquals(3L, result.runIds().get("pg-mongo"));
+
+        RecRunService.DomainRunDetail detail = service.domainRun("party", result.domainRunId());
+        assertNull(detail.domain().profileId());
+        assertEquals("COMPLETED", detail.domain().status());
+        assertEquals(2, detail.profiles().size());
+        assertEquals(2, detail.domain().matched());
+        assertEquals(3, service.domainRuns("party").size());
+        assertEquals(1, service.profileRuns("party", "pg-pg").size());
+    }
+
+    @Test
+    void latestCompletedRunIsActiveAndPreviousRunsAreInactive() {
+        RecConfiguration configuration = configurationWithProfiles(
+                InMemoryRecStores.profile("party", "pg-pg", "source", "target")
+        );
+        InMemoryRecStores.MemoryRecRunRepository runs = new InMemoryRecStores.MemoryRecRunRepository();
+        InMemoryRecStores.MemoryRecRecordRepository records = new InMemoryRecStores.MemoryRecRecordRepository();
+        DatasetRecService recService = new DatasetRecService(
+                new InMemoryRecStores.ScriptedRowLoader()
+                        .put("source", List.of(InMemoryRecStores.row("k", "v")))
+                        .put("target", List.of(InMemoryRecStores.row("k", "v"))),
+                runs,
+                records
+        );
+        RecRunService service = new RecRunService(configuration, recService, runs, records);
+
+        Long first = service.runProfile("party", "pg-pg").block();
+        Long second = service.runProfile("party", "pg-pg").block();
+
+        assertFalse(runs.find(first).active());
+        assertTrue(runs.find(second).active());
+        assertEquals(1, service.profileRuns("party", "pg-pg", true).size());
+        assertEquals(second, service.profileRuns("party", "pg-pg", true).get(0).id());
+    }
+
+    @Test
+    void controllerReconSettingsAreUsedForSubsequentRuns() {
+        RecConfiguration configuration = configurationWithProfiles(
+                InMemoryRecStores.profile("party", "pg-pg", "source", "target")
+        );
+        serviceSettings(configuration).applyProfileRecon("party", "pg-pg", com.mms.data.recon.dataset.ReconMode.COUNTS, List.of());
+        assertEquals(com.mms.data.recon.dataset.ReconMode.COUNTS, configuration.requireProfile("party", "pg-pg").resolvedRecon().resolvedMode());
+    }
+
+    private static RecRunService serviceSettings(RecConfiguration configuration) {
+        return new RecRunService(
+                configuration,
+                new DatasetRecService(
+                        new InMemoryRecStores.ScriptedRowLoader(),
+                        new InMemoryRecStores.MemoryRecRunRepository(),
+                        new InMemoryRecStores.MemoryRecRecordRepository()
+                ),
+                new InMemoryRecStores.MemoryRecRunRepository(),
+                new InMemoryRecStores.MemoryRecRecordRepository()
+        );
+    }
+
+    private static RecConfiguration configurationWithProfiles(DatasetConfiguration... profiles) {
+        DomainConfiguration domain = new DomainConfiguration();
+        Map<String, DatasetConfiguration> profileMap = new LinkedHashMap<>();
+        for (DatasetConfiguration profile : profiles) {
+            profileMap.put(profile.getProfileId(), copy(profile));
+        }
+        domain.setProfiles(profileMap);
+
+        RecConfiguration configuration = new RecConfiguration();
+        Map<String, DomainConfiguration> domains = new LinkedHashMap<>();
+        domains.put("party", domain);
+        configuration.setDomains(domains);
+        return configuration;
+    }
+
+    private static DatasetConfiguration copy(DatasetConfiguration source) {
+        DatasetConfiguration copy = new DatasetConfiguration();
+        DataLoadDefinition src = new DataLoadDefinition();
+        src.setDatasourceRef(source.getSource().getDatasourceRef());
+        DataLoadDefinition tgt = new DataLoadDefinition();
+        tgt.setDatasourceRef(source.getTarget().getDatasourceRef());
+        copy.setSource(src);
+        copy.setTarget(tgt);
+        copy.setHashingStrategy(HashingStrategy.TypeLenient);
+        copy.setBatchSize(10);
+        return copy;
+    }
+}

@@ -1,0 +1,24 @@
+# party / pg-mongo
+# PostgreSQL landing.party -> MongoDB mongo.party
+mms:
+  recon:
+    domains:
+      party:
+        profiles:
+          pg-mongo:
+            datasources:
+              source: landing
+              target: mongo
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            recon:
+              mode: MISMATCH_DETAILS
+            source:
+              schema: landing
+              table: party
+              fields: [party_name, country_code, status]
+            target:
+              collection: party
+              fields: [party_name, country_code, status]
+              query: '{}'

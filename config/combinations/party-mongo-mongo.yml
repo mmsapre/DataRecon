@@ -1,0 +1,24 @@
+# party / mongo-mongo
+# MongoDB mongo.party -> MongoDB mongo.party (same named datasource, typically different collections)
+mms:
+  recon:
+    domains:
+      party:
+        profiles:
+          mongo-mongo:
+            datasources:
+              source: mongo
+              target: mongo
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            recon:
+              mode: MISMATCH_DETAILS
+            source:
+              collection: party_landing
+              fields: [party_name, country_code, status]
+              query: '{}'
+            target:
+              collection: party
+              fields: [party_name, country_code, status]
+              query: '{}'

@@ -1,0 +1,27 @@
+# party / pg-pg-composite
+# PostgreSQL landing.party -> PostgreSQL master.party
+# Composite key party_id|country_code; field-level mismatch details for party_name, status
+mms:
+  recon:
+    domains:
+      party:
+        profiles:
+          pg-pg-composite:
+            datasources:
+              source: landing
+              target: landing
+            migrationKey:
+              type: COMPOSITE
+              columns: [party_id, country_code]
+              separator: "|"
+            recon:
+              mode: FIELD_DETAILS
+              conditionFields: [party_name, status]
+            source:
+              schema: landing
+              table: party
+              fields: [party_name, status]
+            target:
+              schema: master
+              table: party
+              fields: [party_name, status]

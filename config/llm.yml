@@ -1,0 +1,10 @@
+# Optional LLM summary (OpenAI-compatible chat completions).
+# Enabled only when both url and api-key are non-blank.
+mms:
+  recon:
+    llm:
+      url: ${DATA_RECON_LLM_URL:}
+      api-key: ${DATA_RECON_LLM_API_KEY:}
+      model: ${DATA_RECON_LLM_MODEL:gpt-4o-mini}
+      timeout-seconds: 30
+      max-records: 50
