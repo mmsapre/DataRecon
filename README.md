@@ -291,6 +291,14 @@ mms.recon.defaults.reconMode=MISMATCH_DETAILS
 
 Env: `DATA_RECON_USER`, `DATA_RECON_PASSWORD` (defaults `admin` / `admin`).
 
+The React console ([data-recon-ui](https://github.com/mmsapre/data-recon-ui)) uses a **separate backend URL and agent URL** per environment (`dev`, `uat`, `sit`, `prod`). CORS is enabled so that UI can call this API from another origin:
+
+```bash
+export DATA_RECON_CORS_ORIGIN=http://localhost:5173
+```
+
+Default origin is `http://localhost:5173`. OPTIONS requests are anonymous; `/api` still requires basic auth.
+
 ### 7. Start
 
 ```bash
