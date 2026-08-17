@@ -20,6 +20,7 @@
         <calcite.version>1.40.0</calcite.version>
         <hikari.version>6.3.0</hikari.version>
         <mongodb.version>5.5.1</mongodb.version>
+        <micronaut.openapi.version>6.17.3</micronaut.openapi.version>
     </properties>
 
     <dependencyManagement>
@@ -123,6 +124,11 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.micronaut.openapi</groupId>
+            <artifactId>micronaut-openapi-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
 
         <!-- Tests -->
         <dependency>
@@ -146,6 +152,7 @@
                 <version>3.14.0</version>
                 <configuration>
                     <release>17</release>
+                    <parameters>true</parameters>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>io.micronaut</groupId>
@@ -157,10 +164,16 @@
                             <artifactId>micronaut-validation-processor</artifactId>
                             <version>4.10.0</version>
                         </path>
+                        <path>
+                            <groupId>io.micronaut.openapi</groupId>
+                            <artifactId>micronaut-openapi</artifactId>
+                            <version>${micronaut.openapi.version}</version>
+                        </path>
                     </annotationProcessorPaths>
                     <compilerArgs>
                         <arg>-Amicronaut.processing.group=com.mms.data</arg>
                         <arg>-Amicronaut.processing.module=data-recon</arg>
+                        <arg>-Amicronaut.openapi.views.spec=swagger-ui.enabled=true,swagger-ui.theme=flattop</arg>
                     </compilerArgs>
                 </configuration>
             </plugin>

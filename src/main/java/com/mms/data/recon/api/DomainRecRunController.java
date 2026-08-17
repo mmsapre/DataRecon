@@ -3,6 +3,7 @@ package com.mms.data.recon.api;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.mms.data.recon.dataset.ReconMode;
 import com.mms.data.recon.dataset.ReconSettings;
 import com.mms.data.recon.recrun.RecRecordRepository;
@@ -12,6 +13,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
+@Tag(name = "Runs")
 @Controller("/api")
 public class DomainRecRunController {
 

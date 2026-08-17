@@ -12,7 +12,7 @@ A Java 17 / Maven / Micronaut service that reconciles source and target datasets
 - TypeStrict / TypeLenient hashing
 - Flyway schema
 - Basic authentication
-- REST APIs
+- REST APIs and Swagger UI (`/swagger-ui`)
 - Domain and profile scheduling
 - Inline or file-based SQL / Mongo JSON filters
 - Optional LLM summaries of run results (OpenAI-compatible API; requires URL and API key)
@@ -304,6 +304,15 @@ POST /api/runs/{runId}/summary
 GET  /api/domains/{domainId}/runs/{domainRunId}/summary
 POST /api/domains/{domainId}/runs/{domainRunId}/summary
 ```
+
+Swagger UI (no login) and OpenAPI YAML:
+
+```text
+http://localhost:8080/swagger-ui/index.html
+http://localhost:8080/swagger/data-recon-1.0.0.yml
+```
+
+Use **Authorize** in Swagger UI with basic auth (`DATA_RECON_USER` / `DATA_RECON_PASSWORD`) before calling `/api` endpoints. Spec and UI are anonymous; APIs stay authenticated.
 
 Recon mode is set on the profile (or domain) and can be overridden when triggering a run:
 

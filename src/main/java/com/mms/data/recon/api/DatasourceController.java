@@ -2,11 +2,13 @@ package com.mms.data.recon.api;
 
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.mms.data.recon.config.DatasourceCatalog;
 
 import java.util.Comparator;
 import java.util.List;
 
+@Tag(name = "Datasources")
 @Controller("/api/datasources")
 public class DatasourceController {
 

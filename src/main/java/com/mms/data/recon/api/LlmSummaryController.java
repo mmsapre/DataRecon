@@ -3,12 +3,14 @@ package com.mms.data.recon.api;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.mms.data.recon.config.LlmProperties;
 import com.mms.data.recon.llm.LlmSummaryService;
 import com.mms.data.recon.recrun.RecRunService;
 
 import java.util.Map;
 
+@Tag(name = "LLM summaries")
 @Controller("/api")
 public class LlmSummaryController {
 

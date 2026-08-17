@@ -3,6 +3,7 @@ package com.mms.data.recon.api;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.PathVariable;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.mms.data.recon.config.DatasourceCatalog;
 import com.mms.data.recon.config.RecConfiguration;
 import com.mms.data.recon.dataset.DatasetConfiguration;
@@ -10,6 +11,7 @@ import com.mms.data.recon.dataset.DomainConfiguration;
 
 import java.util.List;
 
+@Tag(name = "Domains")
 @Controller("/api")
 public class DomainController {
 
