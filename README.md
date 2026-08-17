@@ -114,7 +114,8 @@ On startup Flyway:
 - creates `mms.recon.database.schema` if it does not exist
 - creates/updates **only** Data Recon’s tables: `rec_run` (run history) and `rec_record` (per-key hashes)
 
-Those tables store counts, match status, and hashes — never source/target business values.
+Those tables store counts, match status, hashes, and the optional source/target query plus
+recon options used for that run — never source/target business values.
 
 ### 3. Prepare source and target (not created by Data Recon)
 
@@ -271,6 +272,11 @@ target:
   fields: [party_name, country_code, status]
 ```
 
+Each run still stores results in PostgreSQL `rec_run` / `rec_record`. Optional query text
+and recon options are saved on that run (`source_query`, `target_query`, `recon_mode`,
+`condition_fields`) so GET `/api/runs` shows what was compared. Record rows stay hashes
+only, never business values.
+
 Optional domain `schedule` triggers every profile on an interval. Optional profile
 `schedule` triggers that pairing only.
 
@@ -328,7 +334,8 @@ java -Dmicronaut.config.files=config/combinations/party-pg-pg.yml -jar target/da
 
 Runtime defaults also live in `src/main/resources/application.yml`. After start, Flyway
 has created `public.rec_run` and `public.rec_record` (or the names you set). Then trigger
-a run (see APIs below).
+a run (see APIs below). Each completed profile run stores counts, optional source/target
+queries, recon mode, and condition fields on `rec_run`, and per-key hashes on `rec_record`.
 
 ## APIs
 

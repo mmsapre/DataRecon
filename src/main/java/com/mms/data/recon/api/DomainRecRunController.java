@@ -111,7 +111,8 @@ public class DomainRecRunController {
                 r.status(), r.startedAt(), r.completedAt(),
                 r.sourceCount(), r.targetCount(), r.matched(),
                 r.mismatched(), r.sourceOnly(), r.targetOnly(), r.errorMessage(),
-                r.active(), r.reconMode()
+                r.active(), r.reconMode(),
+                r.sourceQuery(), r.targetQuery(), r.conditionFields()
         );
     }
 

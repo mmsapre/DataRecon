@@ -216,4 +216,30 @@ class DataLoadDefinitionTest {
                 bigquery.resolveQueryStatement(DatasourceType.bigquery)
         );
     }
+
+    @Test
+    void storedQueryStatementKeepsInlineOrGeneratedQuery() {
+        DataLoadDefinition inline = new DataLoadDefinition();
+        inline.setQuery("SELECT party_id AS \"MigrationKey\", party_name FROM landing.party");
+        assertEquals(
+                "SELECT party_id AS \"MigrationKey\", party_name FROM landing.party",
+                inline.storedQueryStatement()
+        );
+
+        DataLoadDefinition generated = new DataLoadDefinition();
+        generated.setTable("party");
+        generated.setMigrationKey("party_id");
+        generated.setFields(List.of("party_name"));
+        assertEquals(
+                "SELECT party_id AS \"MigrationKey\", party_name FROM party",
+                generated.storedQueryStatement()
+        );
+
+        DataLoadDefinition mongo = new DataLoadDefinition();
+        mongo.setCollection("party");
+        assertEquals("{}", mongo.storedQueryStatement());
+
+        DataLoadDefinition empty = new DataLoadDefinition();
+        assertEquals(null, empty.storedQueryStatement());
+    }
 }

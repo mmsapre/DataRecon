@@ -118,6 +118,18 @@ public final class InMemoryRecStores {
 
         @Override
         public long create(String domainId, String profileId, Long domainRunId, com.mms.data.recon.dataset.ReconMode mode) {
+            return create(domainId, profileId, domainRunId, mode, null, null, null);
+        }
+
+        @Override
+        public long create(
+                String domainId,
+                String profileId,
+                Long domainRunId,
+                com.mms.data.recon.dataset.ReconMode mode,
+                String sourceQuery,
+                String targetQuery,
+                List<String> conditionFields) {
             long id = nextId.getAndIncrement();
             String datasetId = profileId == null || profileId.isBlank()
                     ? domainId
@@ -125,7 +137,9 @@ public final class InMemoryRecStores {
             runs.put(id, new RecRunRepository.RunView(
                     id, datasetId, domainId, profileId, domainRunId,
                     "RUNNING", Instant.now(), null, 0, 0, 0, 0, 0, 0, null,
-                    false, mode == null ? null : mode.name()
+                    false, mode == null ? null : mode.name(),
+                    sourceQuery, targetQuery,
+                    conditionFields == null ? List.of() : List.copyOf(conditionFields)
             ));
             return id;
         }
@@ -140,7 +154,8 @@ public final class InMemoryRecStores {
                         "COMPLETED", prev.startedAt(), Instant.now(),
                         summary.sourceCount(), summary.targetCount(), summary.matched(),
                         summary.mismatched(), summary.sourceOnly(), summary.targetOnly(),
-                        prev.errorMessage(), prev.active(), prev.reconMode()
+                        prev.errorMessage(), prev.active(), prev.reconMode(),
+                        prev.sourceQuery(), prev.targetQuery(), prev.conditionFields()
                 ));
             }
             activate(id);
@@ -162,7 +177,8 @@ public final class InMemoryRecStores {
                             run.status(), run.startedAt(), run.completedAt(),
                             run.sourceCount(), run.targetCount(), run.matched(),
                             run.mismatched(), run.sourceOnly(), run.targetOnly(),
-                            run.errorMessage(), false, run.reconMode()
+                            run.errorMessage(), false, run.reconMode(),
+                            run.sourceQuery(), run.targetQuery(), run.conditionFields()
                     );
                 }
                 return run;
@@ -173,7 +189,8 @@ public final class InMemoryRecStores {
                     latest.status(), latest.startedAt(), latest.completedAt(),
                     latest.sourceCount(), latest.targetCount(), latest.matched(),
                     latest.mismatched(), latest.sourceOnly(), latest.targetOnly(),
-                    latest.errorMessage(), true, latest.reconMode()
+                    latest.errorMessage(), true, latest.reconMode(),
+                    latest.sourceQuery(), latest.targetQuery(), latest.conditionFields()
             ));
         }
 
@@ -188,7 +205,8 @@ public final class InMemoryRecStores {
                         "FAILED", prev.startedAt(), Instant.now(),
                         prev.sourceCount(), prev.targetCount(), prev.matched(),
                         prev.mismatched(), prev.sourceOnly(), prev.targetOnly(),
-                        message, false, prev.reconMode()
+                        message, false, prev.reconMode(),
+                        prev.sourceQuery(), prev.targetQuery(), prev.conditionFields()
                 ));
             }
         }

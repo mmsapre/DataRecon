@@ -1,5 +1,6 @@
 package com.mms.data.recon.dataset;
 
+import com.mms.data.recon.recrun.RecRunRepository;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -163,5 +164,29 @@ class DatasetRecServiceTest {
                 service.reconcile(InMemoryRecStores.dataset("fail", List.of(), List.of())).block());
         assertEquals(1, runs.failures.size());
         assertEquals("Could not connect to database", runs.failures.get(1L));
+    }
+
+    @Test
+    void storesOptionalQueriesAndReconOptionsOnTheRun() {
+        InMemoryRecStores.ScriptedRowLoader loader = new InMemoryRecStores.ScriptedRowLoader()
+                .put("source", List.of(InMemoryRecStores.row("k", "v")))
+                .put("target", List.of(InMemoryRecStores.row("k", "v")));
+        InMemoryRecStores.MemoryRecRunRepository runs = new InMemoryRecStores.MemoryRecRunRepository();
+        InMemoryRecStores.MemoryRecRecordRepository records = new InMemoryRecStores.MemoryRecRecordRepository();
+        DatasetConfiguration dataset = InMemoryRecStores.dataset("query-run", List.of(), List.of());
+        dataset.getSource().setQuery("SELECT party_id AS \"MigrationKey\", party_name FROM landing.party");
+        dataset.getTarget().setQuery("{ \"status\": \"ACTIVE\" }");
+        dataset.getTarget().setCollection("party");
+        dataset.getRecon().setMode(ReconMode.FIELD_DETAILS);
+        dataset.getRecon().setConditionFields(List.of("party_name", "status"));
+
+        new DatasetRecService(loader, runs, records).reconcile(dataset).block();
+
+        RecRunRepository.RunView stored = runs.find(1L);
+        assertEquals("SELECT party_id AS \"MigrationKey\", party_name FROM landing.party", stored.sourceQuery());
+        assertEquals("{ \"status\": \"ACTIVE\" }", stored.targetQuery());
+        assertEquals(List.of("party_name", "status"), stored.conditionFields());
+        assertEquals(ReconMode.FIELD_DETAILS.name(), stored.reconMode());
+        assertEquals(1, runs.lastSummary.matched());
     }
 }

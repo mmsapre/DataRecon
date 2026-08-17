@@ -20,7 +20,8 @@ class LlmSummaryServiceTest {
         RecRunRepository.RunView run = new RecRunRepository.RunView(
                 9L, "party.pg-pg", "party", "pg-pg", null,
                 "COMPLETED", Instant.now(), Instant.now(),
-                10, 10, 8, 1, 1, 0, null, true, "MISMATCH_DETAILS"
+                10, 10, 8, 1, 1, 0, null, true, "MISMATCH_DETAILS",
+                "SELECT 1", "SELECT 1", List.of("status")
         );
         List<RecRecordRepository.RecRecord> records = List.of(
                 new RecRecordRepository.RecRecord("P1", "h1", "h2", RecRecordRepository.RecStatus.MISMATCHED, "{\"status\":\"MISMATCHED\"}"),

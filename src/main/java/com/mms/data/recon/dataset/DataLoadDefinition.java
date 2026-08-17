@@ -197,6 +197,28 @@ public class DataLoadDefinition {
         }
     }
 
+    /**
+     * Query text stored on {@code rec_run}: inline {@code query} if set, generated SQL from
+     * table mapping, Mongo {@code {}}, or null when the side has no resolvable statement.
+     */
+    public String storedQueryStatement() {
+        if (query != null && !query.isBlank()) {
+            return query.trim();
+        }
+        DatasourceType type = resolveType((Function<String, Optional<DatasourceType>>) null);
+        if (type == DatasourceType.mongo) {
+            return "{}";
+        }
+        if (table != null && !table.isBlank()) {
+            try {
+                return generateSelect(type);
+            } catch (RuntimeException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
     String generateSelect(DatasourceType resolvedType) {
         MigrationKeySpec key = migrationKey;
         if (key == null) {

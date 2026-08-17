@@ -19,4 +19,7 @@ public record RunApiModel(
         long targetOnlyCount,
         String errorMessage,
         boolean active,
-        String reconMode) {}
+        String reconMode,
+        String sourceQuery,
+        String targetQuery,
+        java.util.List<String> conditionFields) {}

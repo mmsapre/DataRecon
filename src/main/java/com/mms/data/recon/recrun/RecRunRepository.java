@@ -39,8 +39,26 @@ public class RecRunRepository {
     }
 
     public long create(DatasetConfiguration profile, Long domainRunId, ReconMode mode) {
+        return create(profile, domainRunId, mode, null, null, null);
+    }
+
+    public long create(
+            DatasetConfiguration profile,
+            Long domainRunId,
+            ReconMode mode,
+            String sourceQuery,
+            String targetQuery,
+            List<String> conditionFields) {
         String domainId = profile.getDomainId() != null ? profile.getDomainId() : profile.getId();
-        return create(domainId, profile.getProfileId(), domainRunId, mode);
+        return create(
+                domainId,
+                profile.getProfileId(),
+                domainRunId,
+                mode,
+                sourceQuery,
+                targetQuery,
+                conditionFields
+        );
     }
 
     public long createDomainRun(String domainId) {
@@ -52,12 +70,24 @@ public class RecRunRepository {
     }
 
     public long create(String domainId, String profileId, Long domainRunId, ReconMode mode) {
+        return create(domainId, profileId, domainRunId, mode, null, null, null);
+    }
+
+    public long create(
+            String domainId,
+            String profileId,
+            Long domainRunId,
+            ReconMode mode,
+            String sourceQuery,
+            String targetQuery,
+            List<String> conditionFields) {
         String datasetId = profileId == null || profileId.isBlank()
                 ? domainId
                 : DatasetConfiguration.qualifiedId(domainId, profileId);
         String sql = """
-                INSERT INTO %s(dataset_id, domain_id, profile_id, domain_run_id, status, started_at, active, recon_mode)
-                VALUES (?, ?, ?, ?, 'RUNNING', now(), false, ?)
+                INSERT INTO %s(dataset_id, domain_id, profile_id, domain_run_id, status, started_at, active,
+                               recon_mode, source_query, target_query, condition_fields)
+                VALUES (?, ?, ?, ?, 'RUNNING', now(), false, ?, ?, ?, ?)
                 RETURNING id
                 """.formatted(runTable);
 
@@ -72,6 +102,9 @@ public class RecRunRepository {
                 ps.setLong(4, domainRunId);
             }
             ps.setString(5, mode == null ? null : mode.name());
+            ps.setString(6, blankToNull(sourceQuery));
+            ps.setString(7, blankToNull(targetQuery));
+            ps.setString(8, joinFields(conditionFields));
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
                 return rs.getLong(1);
@@ -252,7 +285,7 @@ public class RecRunRepository {
                 SELECT id, dataset_id, domain_id, profile_id, domain_run_id, status, started_at, completed_at,
                        source_count, target_count, matched_count,
                        mismatched_count, source_only_count, target_only_count,
-                       error_message, active, recon_mode
+                       error_message, active, recon_mode, source_query, target_query, condition_fields
                   FROM %s
                 """.formatted(runTable);
     }
@@ -278,12 +311,32 @@ public class RecRunRepository {
                 rs.getLong("target_only_count"),
                 rs.getString("error_message"),
                 rs.getBoolean("active"),
-                rs.getString("recon_mode")
+                rs.getString("recon_mode"),
+                rs.getString("source_query"),
+                rs.getString("target_query"),
+                splitFields(rs.getString("condition_fields"))
         );
     }
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    static String joinFields(List<String> fields) {
+        if (fields == null || fields.isEmpty()) {
+            return null;
+        }
+        return String.join(",", fields);
+    }
+
+    static List<String> splitFields(String stored) {
+        if (stored == null || stored.isBlank()) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(stored.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .toList();
     }
 
     public record RunSummary(
@@ -323,5 +376,8 @@ public class RecRunRepository {
             long targetOnly,
             String errorMessage,
             boolean active,
-            String reconMode) {}
+            String reconMode,
+            String sourceQuery,
+            String targetQuery,
+            List<String> conditionFields) {}
 }

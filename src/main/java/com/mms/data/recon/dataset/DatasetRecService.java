@@ -37,7 +37,14 @@ public class DatasetRecService {
     public Mono<Long> reconcile(DatasetConfiguration dataset, Long domainRunId, ReconSettings recon) {
         ReconSettings settings = recon == null ? dataset.resolvedRecon() : recon;
         settings.normalize();
-        long runId = runRepository.create(dataset, domainRunId, settings.resolvedMode());
+        long runId = runRepository.create(
+                dataset,
+                domainRunId,
+                settings.resolvedMode(),
+                storedQuery(dataset.getSource()),
+                storedQuery(dataset.getTarget()),
+                settings.resolvedConditionFields()
+        );
 
         Mono<Map<String, LoadedRow>> sourceMono =
                 load(dataset.getSource(), dataset.getHashingStrategy(), dataset.getBatchSize());
@@ -54,6 +61,10 @@ public class DatasetRecService {
                         tuple.getT2()))
                 .doOnError(error -> runRepository.fail(runId, error))
                 .thenReturn(runId);
+    }
+
+    private static String storedQuery(DataLoadDefinition side) {
+        return side == null ? null : side.storedQueryStatement();
     }
 
     private Mono<Map<String, LoadedRow>> load(
