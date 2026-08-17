@@ -17,14 +17,16 @@ class DatasourceCatalogTest {
         DatasourceCatalog catalog = new DatasourceCatalog(
                 List.of(new PostgresDatasourceProperties("landing"), new PostgresDatasourceProperties("master")),
                 List.of(new MongoDatasourceProperties("mongo")),
-                List.of(new BigQueryDatasourceProperties("bq"))
+                List.of(new BigQueryDatasourceProperties("bq")),
+                List.of(new FileDatasourceProperties("csv"))
         );
 
         assertEquals(DatasourceType.postgres, catalog.require("landing"));
         assertEquals(DatasourceType.postgres, catalog.require("master"));
         assertEquals(DatasourceType.mongo, catalog.require("mongo"));
         assertEquals(DatasourceType.bigquery, catalog.require("bq"));
-        assertTrue(catalog.names().containsAll(List.of("landing", "master", "mongo", "bq")));
+        assertEquals(DatasourceType.file, catalog.require("csv"));
+        assertTrue(catalog.names().containsAll(List.of("landing", "master", "mongo", "bq", "csv")));
     }
 
     @Test
@@ -32,13 +34,14 @@ class DatasourceCatalogTest {
         assertThrows(ConfigurationException.class, () -> new DatasourceCatalog(
                 List.of(new PostgresDatasourceProperties("shared")),
                 List.of(new MongoDatasourceProperties("shared")),
+                List.of(),
                 List.of()
         ));
     }
 
     @Test
     void unknownNameFails() {
-        DatasourceCatalog catalog = new DatasourceCatalog(List.of(), List.of(), List.of());
+        DatasourceCatalog catalog = new DatasourceCatalog(List.of(), List.of(), List.of(), List.of());
         assertThrows(ConfigurationException.class, () -> catalog.require("missing"));
     }
 }

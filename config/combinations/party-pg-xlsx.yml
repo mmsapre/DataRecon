@@ -1,0 +1,23 @@
+# party / pg-xlsx
+# PostgreSQL landing.party -> XLSX files via Calcite (path + name pattern)
+mms:
+  recon:
+    domains:
+      party:
+        profiles:
+          pg-xlsx:
+            datasources:
+              source: landing
+              target: xlsx
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            recon:
+              mode: MISMATCH_DETAILS
+            source:
+              schema: landing
+              table: party
+              fields: [party_name, country_code, status]
+            target:
+              table: party
+              fields: [party_name, country_code, status]

@@ -1,0 +1,23 @@
+# party / csv-pg
+# CSV files via Calcite -> PostgreSQL master.party
+mms:
+  recon:
+    domains:
+      party:
+        profiles:
+          csv-pg:
+            datasources:
+              source: csv
+              target: landing
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            recon:
+              mode: MISMATCH_DETAILS
+            source:
+              table: party
+              fields: [party_name, country_code, status]
+            target:
+              schema: master
+              table: party
+              fields: [party_name, country_code, status]

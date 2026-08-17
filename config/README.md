@@ -12,7 +12,7 @@ is in the project [README](../README.md#setup).
 | Store | You create | Data Recon creates |
 |---|---|---|
 | Recon result PostgreSQL | Empty database `data_recon` (name is configurable) | Schema + `rec_run` + `rec_record` on startup |
-| Source / target | Business schemas, tables, collections | Nothing — profile YAML/properties only name them |
+| Source / target | Business schemas, tables, collections, or CSV/XLSX files | Nothing — profile YAML/properties only name them |
 
 Recon table names (YAML and `.properties`): `config/database.yml`, `config/database.properties`.
 
@@ -54,12 +54,15 @@ java -Dmicronaut.config.files=config/combinations/party-pg-pg.yml -jar target/da
 | `party-mongo-pg` | party | mongo-pg | MongoDB `mongo` | PostgreSQL `master` | SINGLE `party_id` | MISMATCH_DETAILS |
 | `party-bigquery-pg` | party | bigquery-pg | BigQuery `bq` | PostgreSQL `master` | SINGLE `party_id` | MISMATCH_DETAILS |
 | `party-mongo-bigquery` | party | mongo-bigquery | MongoDB `mongo` | BigQuery `bq` | SINGLE `party_id` | MISMATCH_DETAILS |
+| `party-pg-csv` | party | pg-csv | PostgreSQL `landing` | CSV Calcite `path`+`pattern` | SINGLE `party_id` | MISMATCH_DETAILS |
+| `party-csv-pg` | party | csv-pg | CSV Calcite `path`+`pattern` | PostgreSQL `master` | SINGLE `party_id` | MISMATCH_DETAILS |
+| `party-pg-xlsx` | party | pg-xlsx | PostgreSQL `landing` | XLSX Calcite `path`+`pattern` | SINGLE `party_id` | MISMATCH_DETAILS |
 | `party-mongo-mongo` | party | mongo-mongo | MongoDB `mongo` | MongoDB `mongo` | SINGLE `party_id` | MISMATCH_DETAILS |
 | `party-bigquery-mongo` | party | bigquery-mongo | BigQuery `bq` | MongoDB `mongo` | SINGLE `party_id` | MISMATCH_DETAILS |
 | `party-bigquery-bigquery` | party | bigquery-bigquery | BigQuery `bq` | BigQuery `bq` | SINGLE `party_id` | MISMATCH_DETAILS |
 | `account-pg-pg` | account | pg-pg | PostgreSQL `landing.account` | PostgreSQL `master.account` | SINGLE `account_id` | COUNTS |
 
-Shared named datasources (already in `application.yml`): `landing`, `master` (PostgreSQL), `mongo`, `bq`.
+Shared named datasources (already in `application.yml`): `landing`, `master` (PostgreSQL), `mongo`, `bq`, `csv`, `xlsx`.
 Copies also live in `config/datasources.yml` / `config/datasources.properties`.
 Result store: `config/database.yml` / `config/database.properties`.
 Optional LLM summaries: `config/llm.yml` / `config/llm.properties` (requires both `url` and `api-key`).

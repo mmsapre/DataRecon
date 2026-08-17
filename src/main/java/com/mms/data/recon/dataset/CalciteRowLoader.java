@@ -1,6 +1,8 @@
 package com.mms.data.recon.dataset;
 
 import com.mms.data.recon.config.CalciteBigQueryCatalog;
+import com.mms.data.recon.config.CalciteFileCatalog;
+import com.mms.data.recon.config.DatasourceCatalog;
 import io.micronaut.context.exceptions.ConfigurationException;
 import jakarta.inject.Singleton;
 import reactor.core.publisher.Flux;
@@ -16,26 +18,48 @@ import java.util.List;
 @Singleton
 public class CalciteRowLoader {
 
-    private final CalciteBigQueryCatalog catalog;
+    private final CalciteBigQueryCatalog bigQuery;
+    private final CalciteFileCatalog files;
+    private final DatasourceCatalog datasources;
 
-    public CalciteRowLoader(CalciteBigQueryCatalog catalog) {
-        this.catalog = catalog;
+    public CalciteRowLoader(
+            CalciteBigQueryCatalog bigQuery,
+            CalciteFileCatalog files,
+            DatasourceCatalog datasources) {
+        this.bigQuery = bigQuery;
+        this.files = files;
+        this.datasources = datasources;
     }
 
     public Flux<DataLoadDefinition.RawRow> load(DataLoadDefinition definition, int batchSize) {
-        if (!catalog.has(definition.getDatasourceRef())) {
-            return Flux.error(new ConfigurationException(
-                    "BigQuery datasource [" + definition.getDatasourceRef() + "] is not configured"
-            ));
-        }
+        DatasourceType type = definition.resolveType(datasources);
+        String ref = definition.getDatasourceRef();
         try {
-            return Flux.fromIterable(query(
-                    catalog.connection(definition.getDatasourceRef()),
-                    definition.resolveQueryStatement(DatasourceType.bigquery)
-            ));
+            Connection connection = connection(type, ref);
+            return Flux.fromIterable(query(connection, definition.resolveQueryStatement(type)));
         } catch (RuntimeException e) {
             return Flux.error(e);
         }
+    }
+
+    private Connection connection(DatasourceType type, String ref) {
+        return switch (type) {
+            case bigquery -> {
+                if (!bigQuery.has(ref)) {
+                    throw new ConfigurationException("BigQuery datasource [" + ref + "] is not configured");
+                }
+                yield bigQuery.connection(ref);
+            }
+            case file -> {
+                if (!files.has(ref)) {
+                    throw new ConfigurationException("File datasource [" + ref + "] is not configured");
+                }
+                yield files.connection(ref);
+            }
+            default -> throw new ConfigurationException(
+                    "Calcite loader does not support datasource type " + type + " [" + ref + "]"
+            );
+        };
     }
 
     static List<DataLoadDefinition.RawRow> query(Connection connection, String sql) {

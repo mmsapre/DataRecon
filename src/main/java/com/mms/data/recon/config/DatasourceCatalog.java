@@ -19,11 +19,13 @@ public class DatasourceCatalog {
     public DatasourceCatalog(
             @Nullable List<PostgresDatasourceProperties> postgres,
             @Nullable List<MongoDatasourceProperties> mongo,
-            @Nullable List<BigQueryDatasourceProperties> bigquery) {
+            @Nullable List<BigQueryDatasourceProperties> bigquery,
+            @Nullable List<FileDatasourceProperties> files) {
         Map<String, DatasourceType> map = new LinkedHashMap<>();
         addAll(map, postgres, DatasourceType.postgres);
         addAll(map, mongo, DatasourceType.mongo);
         addAll(map, bigquery, DatasourceType.bigquery);
+        addAll(map, files, DatasourceType.file);
         this.types = Map.copyOf(map);
     }
 
@@ -79,6 +81,9 @@ public class DatasourceCatalog {
         }
         if (property instanceof BigQueryDatasourceProperties bigquery) {
             return bigquery.getName();
+        }
+        if (property instanceof FileDatasourceProperties file) {
+            return file.getName();
         }
         throw new IllegalArgumentException("Unsupported datasource property: " + property);
     }

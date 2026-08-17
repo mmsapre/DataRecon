@@ -32,6 +32,10 @@ class MigrationKeySpecTest {
                 "CONCAT(CAST(party_id AS STRING), '|', CAST(country_code AS STRING))",
                 spec.sqlExpression(DatasourceType.bigquery)
         );
+        assertEquals(
+                "CAST(party_id AS VARCHAR) || '|' || CAST(country_code AS VARCHAR)",
+                spec.sqlExpression(DatasourceType.file)
+        );
         assertEquals("P1|US", spec.compose(List.of("P1", "US")));
 
         MigrationKeySpec tooFew = new MigrationKeySpec();

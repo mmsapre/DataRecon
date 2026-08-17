@@ -48,7 +48,8 @@ class DomainControllerTest {
         DatasourceCatalog catalog = new DatasourceCatalog(
                 List.of(new PostgresDatasourceProperties("landing")),
                 List.of(),
-                List.of(new BigQueryDatasourceProperties("bq"))
+                List.of(new BigQueryDatasourceProperties("bq")),
+                List.of()
         );
         DomainController controller = new DomainController(configuration, catalog);
 

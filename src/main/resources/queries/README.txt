@@ -1,6 +1,6 @@
 If a dataset source or target omits both "query" and "queryFile":
 
-PostgreSQL loads:
+PostgreSQL / BigQuery / CSV / XLSX (Calcite SQL) load:
     queries/<dataset-id>-source.sql
     queries/<dataset-id>-target.sql
 

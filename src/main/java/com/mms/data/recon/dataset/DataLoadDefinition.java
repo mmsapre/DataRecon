@@ -117,7 +117,7 @@ public class DataLoadDefinition {
             if (missing != null && missing.isEmpty()) {
                 throw new ConfigurationException(
                         "Unknown datasource [" + ref + "] for dataset " + datasetId
-                                + ". Define it under mms.recon.postgres|mongodb|bigquery.datasources "
+                                + ". Define it under mms.recon.postgres|mongodb|bigquery|file.datasources "
                                 + "and attach it to the profile source/target."
                 );
             }

@@ -19,7 +19,14 @@ class DatasetPairingTest {
             "mongo, bigquery",
             "bigquery, postgres",
             "bigquery, mongo",
-            "bigquery, bigquery"
+            "bigquery, bigquery",
+            "postgres, file",
+            "file, postgres",
+            "file, file",
+            "file, mongo",
+            "mongo, file",
+            "file, bigquery",
+            "bigquery, file"
     })
     void reconcilesAnyConfiguredSourceTargetPair(DatasourceType sourceType, DatasourceType targetType) {
         DataLoadDefinition source = side("source", sourceType);

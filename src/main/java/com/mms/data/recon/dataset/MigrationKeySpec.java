@@ -156,8 +156,9 @@ public class MigrationKeySpec {
                     .map(column -> "CAST(" + SqlIdentifiers.require("migrationKey.columns", column) + " AS STRING)")
                     .collect(Collectors.joining(", " + sep + ", ", "CONCAT(", ")"));
         }
+        String castType = datasourceType == DatasourceType.file ? "VARCHAR" : "TEXT";
         return columns.stream()
-                .map(column -> "CAST(" + SqlIdentifiers.require("migrationKey.columns", column) + " AS TEXT)")
+                .map(column -> "CAST(" + SqlIdentifiers.require("migrationKey.columns", column) + " AS " + castType + ")")
                 .collect(Collectors.joining(" || " + sep + " || "));
     }
 

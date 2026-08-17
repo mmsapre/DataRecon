@@ -7,6 +7,7 @@ A Java 17 / Maven / Micronaut service that reconciles source and target datasets
 - PostgreSQL source and optional PostgreSQL target via named R2DBC datasources
 - MongoDB source or target via named Mongo datasources
 - BigQuery source or target through Apache Calcite only (JDBC adapter + BigQuery dialect)
+- CSV / XLSX source or target through Apache Calcite only (path + file name pattern)
 - PostgreSQL persistence for run history and per-key hash results
 - `MigrationKey` based reconciliation
 - TypeStrict / TypeLenient hashing
@@ -22,8 +23,8 @@ A Java 17 / Maven / Micronaut service that reconciles source and target datasets
 | Role | Store |
 |---|---|
 | Reconciliation results | PostgreSQL only (`mms.recon.database`; schema/table names configurable) |
-| Source dataset | PostgreSQL, MongoDB, or BigQuery (Calcite) |
-| Target dataset | PostgreSQL, MongoDB, or BigQuery (Calcite) |
+| Source dataset | PostgreSQL, MongoDB, BigQuery (Calcite), or CSV/XLSX files (Calcite) |
+| Target dataset | PostgreSQL, MongoDB, BigQuery (Calcite), or CSV/XLSX files (Calcite) |
 
 A **domain** is a business area. Each domain has one or more **profiles**, and each
 profile is one source/target combination. Trigger and results work at domain level
@@ -42,6 +43,8 @@ used on either side:
 | `party` | `mongo-pg` | MongoDB `mongo` | PostgreSQL `master` |
 | `party` | `bigquery-pg` | BigQuery `bq` | PostgreSQL `master` |
 | `party` | `mongo-bigquery` | MongoDB `mongo` | BigQuery `bq` |
+| `party` | `pg-csv` | PostgreSQL `landing` | CSV files via Calcite (`path` + `pattern`) |
+| `party` | `pg-xlsx` | PostgreSQL `landing` | XLSX files via Calcite (`path` + `pattern`) |
 
 Ready-to-load YAML and `.properties` for every pairing (including Mongo→Mongo,
 BigQuery→Mongo, BigQuery→BigQuery, and domain `account`) are in
@@ -49,7 +52,7 @@ BigQuery→Mongo, BigQuery→BigQuery, and domain `account`) are in
 
 Other pairings (Mongo→Mongo, BigQuery→Mongo, BigQuery→BigQuery) are the same: define
 named datasources under `mms.recon.postgres.datasources`, `mms.recon.mongodb.datasources`,
-or `mms.recon.bigquery.datasources`, then **attach** them to a profile:
+`mms.recon.bigquery.datasources`, or `mms.recon.file.datasources`, then **attach** them to a profile:
 
 ```yaml
 datasources:
@@ -158,6 +161,14 @@ mms.recon.postgres.datasources.landing.password=postgres
 mms.recon.mongodb.datasources.mongo.uri=mongodb://localhost:27017
 mms.recon.mongodb.datasources.mongo.database=data
 mms.recon.bigquery.datasources.bq.project-id=my-gcp-project
+mms.recon.file.datasources.csv.path=./data/files
+mms.recon.file.datasources.csv.pattern=party*.csv
+mms.recon.file.datasources.csv.format=csv
+mms.recon.file.datasources.csv.table=party
+mms.recon.file.datasources.xlsx.path=./data/files
+mms.recon.file.datasources.xlsx.pattern=party*.xlsx
+mms.recon.file.datasources.xlsx.format=xlsx
+mms.recon.file.datasources.xlsx.table=party
 ```
 
 Attach those names on each profile (`datasources.source` / `datasources.target`).
@@ -581,4 +592,62 @@ mms:
 ```bash
 curl -u admin:admin -X POST \
   http://localhost:8080/api/domains/party/profiles/pg-bigquery/runs
+```
+
+## CSV / XLSX (Calcite)
+
+CSV and Excel files are queried **only through Apache Calcite**. Configure a named
+datasource with a **path** (directory or single file) and a **name pattern** (glob).
+All matching files are read as one table (`UNION ALL`). Apache POI is only the XLSX
+transport, the same way a BigQuery JDBC driver is transport for BigQuery.
+
+YAML (`config/datasources.yml`) and properties (`config/datasources.properties`):
+
+```yaml
+mms:
+  recon:
+    file:
+      datasources:
+        csv:
+          path: ${FILE_PATH:./data/files}
+          pattern: ${FILE_PATTERN:party*.csv}
+          format: csv          # csv | xlsx (inferred from pattern if omitted)
+          table: party         # Calcite table name used in the profile
+          calcite-schema: files
+        xlsx:
+          path: ${XLSX_PATH:./data/files}
+          pattern: ${XLSX_PATTERN:party*.xlsx}
+          format: xlsx
+          table: party
+          sheet: party         # optional; first sheet if omitted
+```
+
+```properties
+mms.recon.file.datasources.csv.path=./data/files
+mms.recon.file.datasources.csv.pattern=party*.csv
+mms.recon.file.datasources.csv.format=csv
+mms.recon.file.datasources.csv.table=party
+```
+
+First row is the header (`party_id,party_name,...`). Profile `target.table` (or
+`source.table`) must match `table` on the file datasource.
+
+```yaml
+datasources:
+  source: landing
+  target: csv
+source:
+  schema: landing
+  table: party
+  fields: [party_name, country_code, status]
+target:
+  table: party
+  fields: [party_name, country_code, status]
+```
+
+```bash
+export FILE_PATH=./data/files
+export FILE_PATTERN=party*.csv
+curl -u admin:admin -X POST \
+  http://localhost:8080/api/domains/party/profiles/pg-csv/runs
 ```

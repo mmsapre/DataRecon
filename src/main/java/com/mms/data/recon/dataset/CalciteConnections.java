@@ -1,6 +1,7 @@
 package com.mms.data.recon.dataset;
 
 import com.mms.data.recon.config.BigQueryDatasourceProperties;
+import com.mms.data.recon.config.FileDatasourceProperties;
 import org.apache.calcite.adapter.java.ReflectiveSchema;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -54,6 +55,28 @@ public final class CalciteConnections {
         } catch (SQLException e) {
             throw new IllegalStateException(
                     "Unable to open Calcite BigQuery schema [" + properties.getName() + "]",
+                    e
+            );
+        }
+    }
+
+    public static Connection file(FileDatasourceProperties properties) {
+        try {
+            Properties info = new Properties();
+            info.setProperty("lex", "ORACLE");
+            info.setProperty("fun", "standard");
+            info.setProperty("unquotedCasing", "UNCHANGED");
+            info.setProperty("quotedCasing", "UNCHANGED");
+            info.setProperty("caseSensitive", "true");
+            Connection connection = DriverManager.getConnection("jdbc:calcite:", info);
+            CalciteConnection calcite = connection.unwrap(CalciteConnection.class);
+            String alias = properties.resolveCalciteSchema();
+            calcite.getRootSchema().add(alias, new CalciteFileSchema(properties));
+            calcite.setSchema(alias);
+            return connection;
+        } catch (SQLException e) {
+            throw new IllegalStateException(
+                    "Unable to open Calcite file schema [" + properties.getName() + "]",
                     e
             );
         }

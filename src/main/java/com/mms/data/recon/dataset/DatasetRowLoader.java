@@ -32,7 +32,7 @@ public class DatasetRowLoader implements RowLoader {
         return switch (resolveType(definition)) {
             case postgres -> postgresRowLoader.load(definition);
             case mongo -> mongoRowLoader.load(definition, batchSize);
-            case bigquery -> calciteRowLoader.load(definition, batchSize);
+            case bigquery, file -> calciteRowLoader.load(definition, batchSize);
         };
     }
 }

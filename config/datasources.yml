@@ -34,3 +34,18 @@ mms:
           dataset: ${BQ_DATASET:master}
           credentials-file: ${BQ_CREDENTIALS:}
           calcite-schema: bq
+    file:
+      datasources:
+        csv:
+          path: ${FILE_PATH:./data/files}
+          pattern: ${FILE_PATTERN:party*.csv}
+          format: csv
+          table: party
+          calcite-schema: files
+        xlsx:
+          path: ${XLSX_PATH:./data/files}
+          pattern: ${XLSX_PATTERN:party*.xlsx}
+          format: xlsx
+          table: party
+          sheet: ${XLSX_SHEET:}
+          calcite-schema: files

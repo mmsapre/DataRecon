@@ -113,6 +113,24 @@ mms:
           credentials-file: ${BQ_CREDENTIALS:}
           calcite-schema: bq
 
+    # CSV / XLSX source or target. Queried only through Apache Calcite.
+    # path = directory or file; pattern = glob (e.g. party*.csv). Matching files are UNION ALL.
+    file:
+      datasources:
+        csv:
+          path: ${FILE_PATH:./data/files}
+          pattern: ${FILE_PATTERN:party*.csv}
+          format: csv
+          table: party
+          calcite-schema: files
+        xlsx:
+          path: ${XLSX_PATH:./data/files}
+          pattern: ${XLSX_PATTERN:party*.xlsx}
+          format: xlsx
+          table: party
+          sheet: ${XLSX_SHEET:}
+          calcite-schema: files
+
     defaults:
       batchSize: 1000
       batchConcurrency: 5
@@ -252,6 +270,36 @@ mms:
               collection: party
               fields: [party_name, country_code, status]
               query: '{}'
+            target:
+              table: party
+              fields: [party_name, country_code, status]
+
+          pg-csv:
+            datasources:
+              source: landing
+              target: csv
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            source:
+              schema: landing
+              table: party
+              fields: [party_name, country_code, status]
+            target:
+              table: party
+              fields: [party_name, country_code, status]
+
+          pg-xlsx:
+            datasources:
+              source: landing
+              target: xlsx
+            migrationKey:
+              type: SINGLE
+              columns: [party_id]
+            source:
+              schema: landing
+              table: party
+              fields: [party_name, country_code, status]
             target:
               table: party
               fields: [party_name, country_code, status]

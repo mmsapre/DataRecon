@@ -3,5 +3,10 @@ package com.mms.data.recon.dataset;
 public enum DatasourceType {
     postgres,
     mongo,
-    bigquery
+    bigquery,
+    file;
+
+    public boolean usesCalcite() {
+        return this == bigquery || this == file;
+    }
 }

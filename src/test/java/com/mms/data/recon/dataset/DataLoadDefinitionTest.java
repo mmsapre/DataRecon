@@ -15,7 +15,8 @@ class DataLoadDefinitionTest {
     private static final DatasourceCatalog CATALOG = new DatasourceCatalog(
             java.util.List.of(new com.mms.data.recon.config.PostgresDatasourceProperties("landing")),
             java.util.List.of(new com.mms.data.recon.config.MongoDatasourceProperties("mongo")),
-            java.util.List.of(new com.mms.data.recon.config.BigQueryDatasourceProperties("bq"))
+            java.util.List.of(new com.mms.data.recon.config.BigQueryDatasourceProperties("bq")),
+            java.util.List.of(new com.mms.data.recon.config.FileDatasourceProperties("csv"))
     );
 
     @Test
@@ -38,10 +39,30 @@ class DataLoadDefinitionTest {
     }
 
     @Test
+    void infersFileFromCatalog() {
+        DataLoadDefinition definition = new DataLoadDefinition();
+        definition.setDatasourceRef("csv");
+        assertEquals(DatasourceType.file, definition.resolveType(CATALOG));
+    }
+
+    @Test
     void infersBigQueryFromCatalog() {
         DataLoadDefinition definition = new DataLoadDefinition();
         definition.setDatasourceRef("bq");
         assertEquals(DatasourceType.bigquery, definition.resolveType(CATALOG));
+    }
+
+    @Test
+    void generatesFileSelectWithQuotedMigrationKey() {
+        DataLoadDefinition definition = new DataLoadDefinition();
+        definition.setTable("party");
+        definition.setMigrationKey("party_id");
+        definition.setFields(List.of("party_name", "country_code", "status"));
+
+        assertEquals(
+                "SELECT party_id AS \"MigrationKey\", party_name, country_code, status FROM party",
+                definition.resolveQueryStatement(DatasourceType.file)
+        );
     }
 
     @Test
