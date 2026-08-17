@@ -35,6 +35,43 @@ public class RecConfiguration {
         return domain;
     }
 
+    public synchronized DomainConfiguration putDomain(String domainId, DomainConfiguration domain) {
+        String id = DomainConfiguration.requireName("domain", domainId);
+        domain.setId(id);
+        if (domain.getProfiles() == null) {
+            domain.setProfiles(new LinkedHashMap<>());
+        }
+        domains.put(id, domain);
+        return domain;
+    }
+
+    public synchronized DomainConfiguration removeDomain(String domainId) {
+        DomainConfiguration removed = domains.remove(requireDomain(domainId).getId());
+        if (removed == null) {
+            throw new IllegalArgumentException("Unknown domain: " + domainId);
+        }
+        return removed;
+    }
+
+    public synchronized DatasetConfiguration putProfile(
+            String domainId,
+            String profileId,
+            DatasetConfiguration profile) {
+        DomainConfiguration domain = requireDomain(domainId);
+        DatasetConfiguration stored = domain.initializeProfile(profileId, profile, defaults);
+        domain.getProfiles().put(stored.getProfileId(), stored);
+        return stored;
+    }
+
+    public synchronized DatasetConfiguration removeProfile(String domainId, String profileId) {
+        DomainConfiguration domain = requireDomain(domainId);
+        DatasetConfiguration removed = domain.getProfiles().remove(profileId);
+        if (removed == null) {
+            throw new IllegalArgumentException("Unknown profile: " + domainId + "." + profileId);
+        }
+        return removed;
+    }
+
     public DatasetConfiguration requireProfile(String domainId, String profileId) {
         return requireDomain(domainId).requireProfile(profileId);
     }

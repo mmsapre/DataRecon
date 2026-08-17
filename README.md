@@ -292,10 +292,22 @@ a run (see APIs below).
 
 ```text
 GET  /api/datasources
+
+POST /api/domains
 GET  /api/domains
 GET  /api/domains/{domainId}
+PUT  /api/domains/{domainId}
+DELETE /api/domains/{domainId}
+
+POST /api/domains/{domainId}/profiles
 GET  /api/domains/{domainId}/profiles
 GET  /api/domains/{domainId}/profiles/{profileId}
+PUT  /api/domains/{domainId}/profiles/{profileId}
+DELETE /api/domains/{domainId}/profiles/{profileId}
+
+PUT  /api/domains/{domainId}/profiles/{profileId}/datasources
+PUT  /api/domains/{domainId}/profiles/{profileId}/source
+PUT  /api/domains/{domainId}/profiles/{profileId}/target
 
 PUT  /api/domains/{domainId}/recon
 PUT  /api/domains/{domainId}/profiles/{profileId}/recon
@@ -324,6 +336,33 @@ http://localhost:8080/swagger/data-recon-1.0.0.yml
 ```
 
 Use **Authorize** in Swagger UI with basic auth (`DATA_RECON_USER` / `DATA_RECON_PASSWORD`) before calling `/api` endpoints. Spec and UI are anonymous; APIs stay authenticated.
+
+Connection pools stay in YAML (`mms.recon.postgres|mongodb|bigquery|file.datasources`). The write APIs add domains/profiles in memory and attach those **named** datasources. A process restart reloads YAML only; API-added catalog entries are not persisted.
+
+```bash
+curl -u admin:admin -X POST http://localhost:8080/api/domains \
+  -H 'Content-Type: application/json' \
+  -d '{"id":"party","schedule":"1h"}'
+
+curl -u admin:admin -X POST http://localhost:8080/api/domains/party/profiles \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "id":"pg-csv",
+    "datasources":{"source":"landing","target":"csv"},
+    "migrationKey":{"type":"SINGLE","columns":["party_id"]},
+    "source":{"schema":"public","table":"party","fields":["party_name","status"]},
+    "target":{"table":"party","fields":["party_name","status"]},
+    "recon":{"mode":"FIELD_DETAILS","conditionFields":["party_name","status"]}
+  }'
+
+curl -u admin:admin -X PUT http://localhost:8080/api/domains/party/profiles/pg-csv/datasources \
+  -H 'Content-Type: application/json' \
+  -d '{"source":"landing","target":"csv"}'
+
+curl -u admin:admin -X PUT http://localhost:8080/api/domains/party/profiles/pg-csv/source \
+  -H 'Content-Type: application/json' \
+  -d '{"schema":"public","table":"party_landing","fields":["party_name","status"]}'
+```
 
 Recon mode is set on the profile (or domain) and can be overridden when triggering a run:
 

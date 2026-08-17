@@ -9,6 +9,9 @@ import com.mms.data.recon.dataset.DatasetConfiguration;
 import com.mms.data.recon.dataset.DatasourceType;
 import com.mms.data.recon.dataset.DomainConfiguration;
 import com.mms.data.recon.dataset.HashingStrategy;
+import com.mms.data.recon.dataset.MigrationKeySpec;
+import com.mms.data.recon.dataset.ReconMode;
+import io.micronaut.http.HttpStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
@@ -51,7 +54,11 @@ class DomainControllerTest {
                 List.of(new BigQueryDatasourceProperties("bq")),
                 List.of()
         );
-        DomainController controller = new DomainController(configuration, catalog);
+        DomainController controller = new DomainController(
+                configuration,
+                catalog,
+                new RecCatalogService(configuration, catalog, null)
+        );
 
         List<DomainApiModel> models = controller.listDomains();
         assertEquals(1, models.size());
@@ -73,5 +80,64 @@ class DomainControllerTest {
         assertEquals(List.of("party_id"), listed.migrationKeyColumns());
         assertEquals("MISMATCH_DETAILS", listed.reconMode());
         assertEquals(List.of(), listed.conditionFields());
+    }
+
+    @Test
+    void createsDomainAndProfileThroughWriteApis() {
+        RecConfiguration configuration = new RecConfiguration();
+        DatasourceCatalog catalog = new DatasourceCatalog(
+                List.of(new PostgresDatasourceProperties("landing")),
+                List.of(),
+                List.of(new BigQueryDatasourceProperties("bq")),
+                List.of()
+        );
+        DomainController controller = new DomainController(
+                configuration,
+                catalog,
+                new RecCatalogService(configuration, catalog, null)
+        );
+
+        DomainUpsertRequest domain = new DomainUpsertRequest();
+        domain.setId("account");
+        domain.setSchedule("30m");
+        assertEquals("account", controller.createDomain(domain).getBody().orElseThrow().id());
+        assertEquals("30m", controller.getDomain("account").schedule());
+
+        ProfileUpsertRequest profile = new ProfileUpsertRequest();
+        profile.setId("pg-bq");
+        profile.setMigrationKey(MigrationKeySpec.single("account_id"));
+        SideRequest source = new SideRequest();
+        source.setDatasource("landing");
+        source.setTable("account");
+        source.setFields(List.of("name"));
+        profile.setSource(source);
+        SideRequest target = new SideRequest();
+        target.setDatasource("bq");
+        target.setTable("account");
+        target.setFields(List.of("name"));
+        profile.setTarget(target);
+
+        ProfileApiModel created = controller.createProfile("account", profile).getBody().orElseThrow();
+        assertEquals("landing", created.sourceDatasource());
+        assertEquals("postgres", created.sourceType());
+        assertEquals("bq", created.targetDatasource());
+        assertEquals("bigquery", created.targetType());
+        assertEquals("FIELD_DETAILS", controller.updateProfile("account", "pg-bq", reconPolicy()).reconMode());
+
+        AttachDatasourcesRequest attach = new AttachDatasourcesRequest();
+        attach.setSource("landing");
+        attach.setTarget("bq");
+        assertEquals("landing", controller.attachDatasources("account", "pg-bq", attach).sourceDatasource());
+        assertEquals(HttpStatus.NO_CONTENT, controller.deleteProfile("account", "pg-bq").getStatus());
+        assertEquals(HttpStatus.NO_CONTENT, controller.deleteDomain("account").getStatus());
+    }
+
+    private static ProfileUpsertRequest reconPolicy() {
+        ProfileUpsertRequest request = new ProfileUpsertRequest();
+        ReconRunRequest recon = new ReconRunRequest();
+        recon.setMode(ReconMode.FIELD_DETAILS);
+        recon.setConditionFields(List.of("name"));
+        request.setRecon(recon);
+        return request;
     }
 }

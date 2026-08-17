@@ -25,21 +25,34 @@ public class DomainConfiguration {
     private Map<String, DatasetConfiguration> profiles = new LinkedHashMap<>();
 
     public void initialize(String id, RecConfiguration.Defaults defaults) {
-        this.id = requireName("domain", id);
-        if (profiles == null || profiles.isEmpty()) {
-            throw new IllegalArgumentException("Domain " + id + " requires at least one profile");
-        }
-        profiles.forEach((profileId, profile) -> {
-            requireName("profile", profileId);
-            profile.setDomainId(this.id);
-            profile.setProfileId(profileId);
-            profile.setId(DatasetConfiguration.qualifiedId(this.id, profileId));
-            profile.applyDefaults(defaults, this);
-            profile.initialize();
-        });
+        initialize(id, defaults, true);
     }
 
-    static String requireName(String field, String value) {
+    public void initialize(String id, RecConfiguration.Defaults defaults, boolean requireProfiles) {
+        this.id = requireName("domain", id);
+        if (profiles == null) {
+            profiles = new LinkedHashMap<>();
+        }
+        if (requireProfiles && profiles.isEmpty()) {
+            throw new IllegalArgumentException("Domain " + id + " requires at least one profile");
+        }
+        profiles.forEach((profileId, profile) -> initializeProfile(profileId, profile, defaults));
+    }
+
+    public DatasetConfiguration initializeProfile(
+            String profileId,
+            DatasetConfiguration profile,
+            RecConfiguration.Defaults defaults) {
+        requireName("profile", profileId);
+        profile.setDomainId(this.id);
+        profile.setProfileId(profileId);
+        profile.setId(DatasetConfiguration.qualifiedId(this.id, profileId));
+        profile.applyDefaults(defaults, this);
+        profile.initialize();
+        return profile;
+    }
+
+    public static String requireName(String field, String value) {
         if (value == null || value.isBlank() || !value.matches(NAME_PATTERN)) {
             throw new IllegalArgumentException(
                     field + " [" + value + "] must match " + NAME_PATTERN

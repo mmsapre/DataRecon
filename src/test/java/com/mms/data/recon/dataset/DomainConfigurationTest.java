@@ -12,6 +12,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class DomainConfigurationTest {
 
     @Test
+    void initializeAllowsEmptyProfilesWhenNotRequired() {
+        DomainConfiguration domain = new DomainConfiguration();
+        domain.initialize("party", new RecConfiguration.Defaults(), false);
+        assertEquals("party", domain.getId());
+        assertEquals(0, domain.getProfiles().size());
+    }
+
+    @Test
     void initializeRequiresAtLeastOneProfile() {
         DomainConfiguration domain = new DomainConfiguration();
         assertThrows(IllegalArgumentException.class, () -> domain.initialize("party", new RecConfiguration.Defaults()));

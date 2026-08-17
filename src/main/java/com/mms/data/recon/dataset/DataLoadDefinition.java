@@ -85,6 +85,14 @@ public class DataLoadDefinition {
         }
     }
 
+    public void attachDatasource(String name) {
+        if (blank(name)) {
+            return;
+        }
+        this.datasource = name;
+        this.datasourceRef = name;
+    }
+
     public void applyMigrationKey(MigrationKeySpec spec) {
         if (spec != null) {
             this.migrationKey = spec;

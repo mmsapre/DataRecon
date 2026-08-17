@@ -39,6 +39,30 @@ class RecConfigurationTest {
     }
 
     @Test
+    void putAndRemoveDomainAndProfileAtRuntime() {
+        RecConfiguration configuration = new RecConfiguration();
+        DomainConfiguration domain = new DomainConfiguration();
+        domain.initialize("party", configuration.getDefaults(), false);
+        configuration.putDomain("party", domain);
+        assertEquals("party", configuration.requireDomain("party").getId());
+
+        DatasetConfiguration profile = new DatasetConfiguration();
+        DataLoadDefinition source = new DataLoadDefinition();
+        source.setDatasourceRef("landing");
+        DataLoadDefinition target = new DataLoadDefinition();
+        target.setDatasourceRef("bq");
+        profile.setSource(source);
+        profile.setTarget(target);
+        configuration.putProfile("party", "pg-bq", profile);
+
+        assertEquals("party.pg-bq", configuration.requireProfile("party", "pg-bq").getId());
+        configuration.removeProfile("party", "pg-bq");
+        assertThrows(IllegalArgumentException.class, () -> configuration.requireProfile("party", "pg-bq"));
+        configuration.removeDomain("party");
+        assertThrows(IllegalArgumentException.class, () -> configuration.requireDomain("party"));
+    }
+
+    @Test
     void domainDefaultsOverrideGlobalDefaultsForProfiles() {
         DataLoadDefinition source = new DataLoadDefinition();
         source.setDatasourceRef("landing");

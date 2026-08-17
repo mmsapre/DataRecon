@@ -20,6 +20,15 @@ class DataLoadDefinitionTest {
     );
 
     @Test
+    void attachDatasourceOverwritesExistingRef() {
+        DataLoadDefinition definition = new DataLoadDefinition();
+        definition.setDatasource("landing");
+        definition.attachDatasource("csv");
+        assertEquals("csv", definition.getDatasource());
+        assertEquals("csv", definition.getDatasourceRef());
+    }
+
+    @Test
     void infersMongoFromCatalogOrCollection() {
         DataLoadDefinition fromCatalog = new DataLoadDefinition();
         fromCatalog.setDatasourceRef("mongo");
