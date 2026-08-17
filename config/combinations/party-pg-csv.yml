@@ -1,5 +1,5 @@
 # party / pg-csv
-# PostgreSQL landing.party -> CSV files via Calcite (path + name pattern)
+# PostgreSQL landing.party -> CSV files via Calcite (path + regex pattern)
 mms:
   recon:
     domains:

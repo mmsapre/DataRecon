@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 /**
- * Calcite table over CSV or XLSX files matched by path + name pattern.
+ * Calcite table over CSV or XLSX files matched by path + regex name pattern.
  * Multiple matching files are UNION ALL'd as one table.
  */
 public final class FileScannableTable extends AbstractTable implements ScannableTable {

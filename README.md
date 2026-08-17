@@ -7,7 +7,7 @@ A Java 17 / Maven / Micronaut service that reconciles source and target datasets
 - PostgreSQL source and optional PostgreSQL target via named R2DBC datasources
 - MongoDB source or target via named Mongo datasources
 - BigQuery source or target through Apache Calcite only (JDBC adapter + BigQuery dialect)
-- CSV / XLSX source or target through Apache Calcite only (path + file name pattern)
+- CSV / XLSX source or target through Apache Calcite only (path + regex file name pattern)
 - PostgreSQL persistence for run history and per-key hash results
 - `MigrationKey` based reconciliation
 - TypeStrict / TypeLenient hashing
@@ -162,11 +162,11 @@ mms.recon.mongodb.datasources.mongo.uri=mongodb://localhost:27017
 mms.recon.mongodb.datasources.mongo.database=data
 mms.recon.bigquery.datasources.bq.project-id=my-gcp-project
 mms.recon.file.datasources.csv.path=./data/files
-mms.recon.file.datasources.csv.pattern=party*.csv
+mms.recon.file.datasources.csv.pattern=party.*[.]csv
 mms.recon.file.datasources.csv.format=csv
 mms.recon.file.datasources.csv.table=party
 mms.recon.file.datasources.xlsx.path=./data/files
-mms.recon.file.datasources.xlsx.pattern=party*.xlsx
+mms.recon.file.datasources.xlsx.pattern=party.*[.]xlsx
 mms.recon.file.datasources.xlsx.format=xlsx
 mms.recon.file.datasources.xlsx.table=party
 ```
@@ -597,7 +597,7 @@ curl -u admin:admin -X POST \
 ## CSV / XLSX (Calcite)
 
 CSV and Excel files are queried **only through Apache Calcite**. Configure a named
-datasource with a **path** (directory or single file) and a **name pattern** (glob).
+datasource with a **path** (directory or single file) and a **name pattern** (Java regex).
 All matching files are read as one table (`UNION ALL`). Apache POI is only the XLSX
 transport, the same way a BigQuery JDBC driver is transport for BigQuery.
 
@@ -610,13 +610,13 @@ mms:
       datasources:
         csv:
           path: ${FILE_PATH:./data/files}
-          pattern: ${FILE_PATTERN:party*.csv}
+          pattern: ${FILE_PATTERN:party.*[.]csv}
           format: csv          # csv | xlsx (inferred from pattern if omitted)
           table: party         # Calcite table name used in the profile
           calcite-schema: files
         xlsx:
           path: ${XLSX_PATH:./data/files}
-          pattern: ${XLSX_PATTERN:party*.xlsx}
+          pattern: ${XLSX_PATTERN:party.*[.]xlsx}
           format: xlsx
           table: party
           sheet: party         # optional; first sheet if omitted
@@ -624,7 +624,7 @@ mms:
 
 ```properties
 mms.recon.file.datasources.csv.path=./data/files
-mms.recon.file.datasources.csv.pattern=party*.csv
+mms.recon.file.datasources.csv.pattern=party.*[.]csv
 mms.recon.file.datasources.csv.format=csv
 mms.recon.file.datasources.csv.table=party
 ```
@@ -647,7 +647,7 @@ target:
 
 ```bash
 export FILE_PATH=./data/files
-export FILE_PATTERN=party*.csv
+export FILE_PATTERN=party.*[.]csv
 curl -u admin:admin -X POST \
   http://localhost:8080/api/domains/party/profiles/pg-csv/runs
 ```

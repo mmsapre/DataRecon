@@ -31,7 +31,7 @@ class CalciteFileRowLoaderTest {
 
         FileDatasourceProperties properties = new FileDatasourceProperties("csv");
         properties.setPath(tempDir.toString());
-        properties.setPattern("party*.csv");
+        properties.setPattern("party.*[.]csv");
         properties.setFormat("csv");
         properties.setTable("party");
 
@@ -69,7 +69,7 @@ class CalciteFileRowLoaderTest {
 
         FileDatasourceProperties properties = new FileDatasourceProperties("xlsx");
         properties.setPath(tempDir.toString());
-        properties.setPattern("party*.xlsx");
+        properties.setPattern("party.*[.]xlsx");
         properties.setFormat("xlsx");
         properties.setTable("party");
         properties.setSheet("party");

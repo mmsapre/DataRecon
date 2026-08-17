@@ -7,9 +7,10 @@ import io.micronaut.context.exceptions.ConfigurationException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.PathMatcher;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 
 @EachProperty(MmsRecon.PREFIX + ".file.datasources")
@@ -69,7 +70,7 @@ public class FileDatasourceProperties {
             return explicit;
         }
         String hint = pattern == null ? "" : pattern.toLowerCase(Locale.ROOT);
-        if (hint.contains(".xlsx") || hint.contains(".xls")) {
+        if (hint.contains("xlsx") || hint.contains("xls")) {
             return FileFormat.xlsx;
         }
         return FileFormat.csv;
@@ -106,11 +107,14 @@ public class FileDatasourceProperties {
                     "File datasource [" + name + "] path does not exist: " + base
             );
         }
+        Pattern regex = compiledPattern();
+        FileFormat resolved = resolveFormat();
         if (Files.isRegularFile(base)) {
-            if (!resolveFormat().matches(base.getFileName().toString())) {
+            String fileName = base.getFileName().toString();
+            if (!resolved.matches(fileName) || !regex.matcher(fileName).matches()) {
                 throw new ConfigurationException(
-                        "File datasource [" + name + "] path [" + base + "] is not a "
-                                + resolveFormat() + " file"
+                        "File datasource [" + name + "] path [" + base + "] does not match pattern ["
+                                + resolvedPattern() + "]"
                 );
             }
             return List.of(base);
@@ -120,20 +124,18 @@ public class FileDatasourceProperties {
                     "File datasource [" + name + "] path is not a file or directory: " + base
             );
         }
-        String glob = resolvedPattern();
-        PathMatcher matcher = base.getFileSystem().getPathMatcher("glob:" + glob);
-        boolean recursive = glob.contains("**") || glob.contains("/") || glob.contains("\\");
-        FileFormat resolved = resolveFormat();
+        String expression = resolvedPattern();
+        boolean recursive = expression.contains("/");
         try (Stream<Path> stream = recursive ? Files.walk(base) : Files.list(base)) {
             List<Path> matched = stream
                     .filter(Files::isRegularFile)
-                    .filter(candidate -> matchesGlob(base, candidate, matcher))
                     .filter(candidate -> resolved.matches(candidate.getFileName().toString()))
+                    .filter(candidate -> matchesRegex(base, candidate, regex))
                     .sorted()
                     .toList();
             if (matched.isEmpty()) {
                 throw new ConfigurationException(
-                        "File datasource [" + name + "] path [" + base + "] pattern [" + glob
+                        "File datasource [" + name + "] path [" + base + "] pattern [" + expression
                                 + "] matched no " + resolved + " files"
                 );
             }
@@ -153,20 +155,33 @@ public class FileDatasourceProperties {
         return value.charAt(0);
     }
 
+    Pattern compiledPattern() {
+        String expression = resolvedPattern();
+        try {
+            return Pattern.compile(expression);
+        } catch (PatternSyntaxException e) {
+            throw new ConfigurationException(
+                    "File datasource [" + name + "] pattern is not valid regex: " + expression,
+                    e
+            );
+        }
+    }
+
     private String resolvedPattern() {
         if (pattern != null && !pattern.isBlank()) {
             return pattern;
         }
-        return resolveFormat() == FileFormat.xlsx ? "*.xlsx" : "*.csv";
+        return resolveFormat() == FileFormat.xlsx ? ".*[.]xlsx" : ".*[.]csv";
     }
 
-    private static boolean matchesGlob(Path base, Path candidate, PathMatcher matcher) {
+    private static boolean matchesRegex(Path base, Path candidate, Pattern regex) {
         Path fileName = candidate.getFileName();
-        if (fileName != null && matcher.matches(fileName)) {
+        if (fileName != null && regex.matcher(fileName.toString()).matches()) {
             return true;
         }
         try {
-            return matcher.matches(base.relativize(candidate));
+            String relative = base.relativize(candidate).toString().replace('\\', '/');
+            return regex.matcher(relative).matches();
         } catch (IllegalArgumentException e) {
             return false;
         }
@@ -182,9 +197,8 @@ public class FileDatasourceProperties {
             fileName = fileName.substring(slash + 1);
         }
         String stem = stripExtension(fileName)
-                .replace("**", "")
-                .replace("*", "")
-                .replace("?", "")
+                .replaceAll("\\\\[dDsSwW]", "")
+                .replaceAll("[\\\\.^$*+?()\\[\\]{}|]+", "")
                 .replace("-", "_")
                 .replaceAll("^_+", "")
                 .replaceAll("_+$", "");

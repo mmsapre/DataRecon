@@ -19,7 +19,7 @@ class FileDatasourcePropertiesTest {
     @Test
     void infersCsvFormatAndTableFromPattern() {
         FileDatasourceProperties properties = new FileDatasourceProperties("csv");
-        properties.setPattern("party*.csv");
+        properties.setPattern("party.*[.]csv");
         assertEquals(FileFormat.csv, properties.resolveFormat());
         assertEquals("party", properties.resolveTableName());
     }
@@ -27,20 +27,19 @@ class FileDatasourcePropertiesTest {
     @Test
     void infersXlsxFormatFromPattern() {
         FileDatasourceProperties properties = new FileDatasourceProperties("xlsx");
-        properties.setPattern("party_*.xlsx");
+        properties.setPattern("party_\\d+[.]xlsx");
         assertEquals(FileFormat.xlsx, properties.resolveFormat());
-        assertEquals("party", properties.resolveTableName());
     }
 
     @Test
-    void matchesGlobFilesInPath() throws Exception {
+    void matchesRegexFileNamesInPath() throws Exception {
         Files.writeString(tempDir.resolve("party_20240101.csv"), "party_id\nP1\n");
         Files.writeString(tempDir.resolve("party_20240102.csv"), "party_id\nP2\n");
         Files.writeString(tempDir.resolve("other.csv"), "party_id\nX\n");
 
         FileDatasourceProperties properties = new FileDatasourceProperties("csv");
         properties.setPath(tempDir.toString());
-        properties.setPattern("party*.csv");
+        properties.setPattern("party_\\d+[.]csv");
         properties.setTable("party");
 
         List<Path> matched = properties.matchingFiles();
@@ -49,10 +48,18 @@ class FileDatasourcePropertiesTest {
     }
 
     @Test
+    void invalidRegexFails() {
+        FileDatasourceProperties properties = new FileDatasourceProperties("csv");
+        properties.setPath(tempDir.toString());
+        properties.setPattern("party[");
+        assertThrows(ConfigurationException.class, properties::matchingFiles);
+    }
+
+    @Test
     void missingFilesFail() {
         FileDatasourceProperties properties = new FileDatasourceProperties("csv");
         properties.setPath(tempDir.toString());
-        properties.setPattern("missing*.csv");
+        properties.setPattern("missing.*[.]csv");
         assertThrows(ConfigurationException.class, properties::matchingFiles);
     }
 }

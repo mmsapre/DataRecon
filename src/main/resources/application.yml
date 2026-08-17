@@ -114,18 +114,19 @@ mms:
           calcite-schema: bq
 
     # CSV / XLSX source or target. Queried only through Apache Calcite.
-    # path = directory or file; pattern = glob (e.g. party*.csv). Matching files are UNION ALL.
+    # path = directory or file; pattern = Java regex on the file name (e.g. party_\\d+[.]csv).
+    # Matching files are UNION ALL.
     file:
       datasources:
         csv:
           path: ${FILE_PATH:./data/files}
-          pattern: ${FILE_PATTERN:party*.csv}
+          pattern: ${FILE_PATTERN:party.*[.]csv}
           format: csv
           table: party
           calcite-schema: files
         xlsx:
           path: ${XLSX_PATH:./data/files}
-          pattern: ${XLSX_PATTERN:party*.xlsx}
+          pattern: ${XLSX_PATTERN:party.*[.]xlsx}
           format: xlsx
           table: party
           sheet: ${XLSX_SHEET:}
