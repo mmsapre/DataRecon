@@ -1,26 +1,24 @@
 package com.mms.data.recon.dataset;
 
 import com.mms.data.recon.config.ConfigurationException;
+import com.mms.data.recon.config.PostgresConnectionFactoryCatalog;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.Row;
 import io.r2dbc.spi.RowMetadata;
 import io.r2dbc.spi.Statement;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Component
 public class PostgresRowLoader {
 
-    private final Map<String, ConnectionFactory> connectionFactories;
+    private final PostgresConnectionFactoryCatalog connectionFactories;
 
-    public PostgresRowLoader(
-            @Qualifier("postgresConnectionFactories") Map<String, ConnectionFactory> connectionFactories) {
+    public PostgresRowLoader(PostgresConnectionFactoryCatalog connectionFactories) {
         this.connectionFactories = connectionFactories;
     }
 
@@ -32,11 +30,11 @@ public class PostgresRowLoader {
             ));
         }
 
-        ConnectionFactory factory = connectionFactories.get(datasourceRef);
-        if (factory == null) {
-            return Flux.error(new ConfigurationException(
-                    "Unknown PostgreSQL datasource: " + datasourceRef
-            ));
+        ConnectionFactory factory;
+        try {
+            factory = connectionFactories.require(datasourceRef);
+        } catch (ConfigurationException e) {
+            return Flux.error(e);
         }
 
         String sql = definition.resolveQueryStatement(DatasourceType.postgres);

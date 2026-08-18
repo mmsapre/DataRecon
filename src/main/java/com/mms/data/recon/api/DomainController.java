@@ -2,8 +2,10 @@ package com.mms.data.recon.api;
 
 import com.mms.data.recon.config.DatasourceCatalog;
 import com.mms.data.recon.config.RecConfiguration;
+import com.mms.data.recon.config.Tags;
 import com.mms.data.recon.dataset.DatasetConfiguration;
 import com.mms.data.recon.dataset.DomainConfiguration;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -13,11 +15,16 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
 import java.util.List;
 
+/**
+ * Steps 2–3 of setup: create domains, then profiles that attach already-registered datasources.
+ * Optional tags group domains/profiles for listing.
+ */
 @Tag(name = "Domains")
 @RestController
 @RequestMapping("/api")
@@ -37,8 +44,10 @@ public class DomainController {
     }
 
     @GetMapping("/domains")
-    public List<DomainApiModel> listDomains() {
+    @Operation(summary = "List domains", description = "Optional tag filter")
+    public List<DomainApiModel> listDomains(@RequestParam(required = false) String tag) {
         return configuration.getDomains().values().stream()
+                .filter(domain -> Tags.matches(domain.getTags(), tag))
                 .map(this::domain)
                 .toList();
     }
@@ -66,8 +75,12 @@ public class DomainController {
     }
 
     @GetMapping("/domains/{domainId}/profiles")
-    public List<ProfileApiModel> listProfiles(@PathVariable String domainId) {
+    @Operation(summary = "List profiles in a domain", description = "Optional tag filter")
+    public List<ProfileApiModel> listProfiles(
+            @PathVariable String domainId,
+            @RequestParam(required = false) String tag) {
         return configuration.requireDomain(domainId).getProfiles().values().stream()
+                .filter(profile -> Tags.matches(profile.getTags(), tag))
                 .map(this::profile)
                 .toList();
     }
@@ -129,6 +142,7 @@ public class DomainController {
                 domain.getId(),
                 domain.getSchedule(),
                 domain.getHashingStrategy() == null ? null : domain.getHashingStrategy().name(),
+                domain.getTags() == null ? List.of() : domain.getTags(),
                 domain.getProfiles().values().stream().map(this::profile).toList()
         );
     }
@@ -150,7 +164,8 @@ public class DomainController {
                 profile.getHashingStrategy() == null ? null : profile.getHashingStrategy().name(),
                 profile.getSchedule(),
                 profile.resolvedRecon().resolvedMode().name(),
-                profile.resolvedRecon().resolvedConditionFields()
+                profile.resolvedRecon().resolvedConditionFields(),
+                profile.getTags() == null ? List.of() : profile.getTags()
         );
     }
 }

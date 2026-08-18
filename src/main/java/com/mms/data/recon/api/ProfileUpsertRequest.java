@@ -4,6 +4,8 @@ import com.mms.data.recon.dataset.HashingStrategy;
 import com.mms.data.recon.dataset.MigrationKeySpec;
 import com.mms.data.recon.dataset.ProfileDatasources;
 
+import java.util.List;
+
 public class ProfileUpsertRequest {
 
     private String id;
@@ -16,6 +18,7 @@ public class ProfileUpsertRequest {
     private ReconRunRequest recon;
     private SideRequest source;
     private SideRequest target;
+    private List<String> tags;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -46,4 +49,7 @@ public class ProfileUpsertRequest {
 
     public SideRequest getTarget() { return target; }
     public void setTarget(SideRequest target) { this.target = target; }
+
+    public List<String> getTags() { return tags; }
+    public void setTags(List<String> tags) { this.tags = tags; }
 }

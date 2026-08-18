@@ -353,19 +353,32 @@ queries, recon mode, and condition fields on `rec_run`, and per-key hashes on `r
 
 ## APIs
 
-```text
-GET  /api/datasources
+Setup order from the controllers: **datasources → domains → profiles** (profiles attach named
+datasources). Optional **`tags`** on each level group related items; list with `?tag=party`.
 
-POST /api/domains
-GET  /api/domains
-GET  /api/domains/{domainId}
-PUT  /api/domains/{domainId}
+```text
+# 1) Datasources (source/target connections)
+GET    /api/datasources
+GET    /api/datasources?tag=prod
+POST   /api/datasources
+GET    /api/datasources/{name}
+PUT    /api/datasources/{name}
+DELETE /api/datasources/{name}
+
+# 2) Domains
+POST   /api/domains
+GET    /api/domains
+GET    /api/domains?tag=party
+GET    /api/domains/{domainId}
+PUT    /api/domains/{domainId}
 DELETE /api/domains/{domainId}
 
-POST /api/domains/{domainId}/profiles
-GET  /api/domains/{domainId}/profiles
-GET  /api/domains/{domainId}/profiles/{profileId}
-PUT  /api/domains/{domainId}/profiles/{profileId}
+# 3) Profiles within a domain
+POST   /api/domains/{domainId}/profiles
+GET    /api/domains/{domainId}/profiles
+GET    /api/domains/{domainId}/profiles?tag=nightly
+GET    /api/domains/{domainId}/profiles/{profileId}
+PUT    /api/domains/{domainId}/profiles/{profileId}
 DELETE /api/domains/{domainId}/profiles/{profileId}
 
 PUT  /api/domains/{domainId}/profiles/{profileId}/datasources
@@ -376,10 +389,20 @@ PUT  /api/domains/{domainId}/recon
 PUT  /api/domains/{domainId}/profiles/{profileId}/recon
 
 POST /api/domains/{domainId}/runs
+POST /api/domains/{domainId}/profiles/{profileId}/runs
+  Body (optional):
+  {
+    "mode": "COUNTS|MISMATCH_DETAILS|FIELD_DETAILS",
+    "conditionFields": ["col"],
+    "forceFull": true
+  }
+  Default is incremental when a previous active profile run exists.
+  forceFull=true forces a FULL extract/compare and new baseline.
+  Detail modes stream source/target into DuckDB and compare with EXCEPT ALL;
+  mismatch rows (with payloads) are stored and available via GET /api/runs/{runId}/records.
+
 GET  /api/domains/{domainId}/runs?active=true
 GET  /api/domains/{domainId}/runs/{domainRunId}
-
-POST /api/domains/{domainId}/profiles/{profileId}/runs
 GET  /api/domains/{domainId}/profiles/{profileId}/runs?active=true
 
 GET  /api/runs/{runId}/records
@@ -400,17 +423,30 @@ http://localhost:8080/v3/api-docs
 
 Use **Authorize** in Swagger UI with basic auth (`DATA_RECON_USER` / `DATA_RECON_PASSWORD`) before calling `/api` endpoints. Spec and UI are anonymous; APIs stay authenticated.
 
-Connection pools stay in YAML (`mms.recon.postgres|mongodb|bigquery|file.datasources`). The write APIs add domains/profiles in memory and attach those **named** datasources. A process restart reloads YAML only; API-added catalog entries are not persisted.
+YAML still seeds datasources (`mms.recon.postgres|mongodb|bigquery|file.datasources`) and domains.
+API create/update for datasources, domains, and profiles is in-memory; a restart reloads YAML only.
 
 ```bash
+# 1) Register datasources (or use YAML-seeded names)
+curl -u admin:admin -X POST http://localhost:8080/api/datasources \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"landing","type":"postgres","tags":["prod","source"],"host":"localhost","database":"data"}'
+
+curl -u admin:admin -X POST http://localhost:8080/api/datasources \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"csv","type":"file","tags":["prod","target"],"path":"./data/files","pattern":"party.*[.]csv","format":"csv"}'
+
+# 2) Domain
 curl -u admin:admin -X POST http://localhost:8080/api/domains \
   -H 'Content-Type: application/json' \
-  -d '{"id":"party","schedule":"1h"}'
+  -d '{"id":"party","schedule":"1h","tags":["party"]}'
 
+# 3) Profile attaching those datasources
 curl -u admin:admin -X POST http://localhost:8080/api/domains/party/profiles \
   -H 'Content-Type: application/json' \
   -d '{
     "id":"pg-csv",
+    "tags":["nightly"],
     "datasources":{"source":"landing","target":"csv"},
     "migrationKey":{"type":"SINGLE","columns":["party_id"]},
     "source":{"schema":"public","table":"party","fields":["party_name","status"]},

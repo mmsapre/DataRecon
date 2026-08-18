@@ -22,4 +22,6 @@ public record RunApiModel(
         String reconMode,
         String sourceQuery,
         String targetQuery,
-        java.util.List<String> conditionFields) {}
+        java.util.List<String> conditionFields,
+        String runScope,
+        Long baselineRunId) {}

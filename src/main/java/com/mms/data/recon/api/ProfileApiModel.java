@@ -13,4 +13,5 @@ public record ProfileApiModel(
         String hashingStrategy,
         String schedule,
         String reconMode,
-        java.util.List<String> conditionFields) {}
+        java.util.List<String> conditionFields,
+        java.util.List<String> tags) {}

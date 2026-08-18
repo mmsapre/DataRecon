@@ -32,7 +32,7 @@ public class RecRunService {
     }
 
     public Mono<Long> runProfile(String domainId, String profileId) {
-        return runProfile(domainId, profileId, null, null);
+        return runProfile(domainId, profileId, null, null, false);
     }
 
     public Mono<Long> runProfile(
@@ -40,26 +40,43 @@ public class RecRunService {
             String profileId,
             com.mms.data.recon.dataset.ReconMode mode,
             List<String> conditionFields) {
+        return runProfile(domainId, profileId, mode, conditionFields, false);
+    }
+
+    public Mono<Long> runProfile(
+            String domainId,
+            String profileId,
+            com.mms.data.recon.dataset.ReconMode mode,
+            List<String> conditionFields,
+            boolean forceFull) {
         var profile = configuration.requireProfile(domainId, profileId);
         ReconSettings settings = profile.resolvedRecon().overlay(mode, conditionFields);
-        return datasetRecService.reconcile(profile, null, settings);
+        return datasetRecService.reconcile(profile, null, settings, forceFull);
     }
 
     public Mono<DomainRunResult> runDomain(String domainId) {
-        return runDomain(domainId, null, null);
+        return runDomain(domainId, null, null, false);
     }
 
     public Mono<DomainRunResult> runDomain(
             String domainId,
             com.mms.data.recon.dataset.ReconMode mode,
             List<String> conditionFields) {
+        return runDomain(domainId, mode, conditionFields, false);
+    }
+
+    public Mono<DomainRunResult> runDomain(
+            String domainId,
+            com.mms.data.recon.dataset.ReconMode mode,
+            List<String> conditionFields,
+            boolean forceFull) {
         DomainConfiguration domain = configuration.requireDomain(domainId);
         long domainRunId = runRepository.createDomainRun(domainId);
         return Flux.fromIterable(domain.getProfiles().entrySet())
                 .concatMap(entry -> {
                     ReconSettings settings = entry.getValue().resolvedRecon().overlay(mode, conditionFields);
                     return datasetRecService
-                            .reconcile(entry.getValue(), domainRunId, settings)
+                            .reconcile(entry.getValue(), domainRunId, settings, forceFull)
                             .map(runId -> Map.entry(entry.getKey(), runId));
                 })
                 .collectMap(Map.Entry::getKey, Map.Entry::getValue, LinkedHashMap::new)

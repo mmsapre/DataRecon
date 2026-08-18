@@ -159,6 +159,9 @@ public class RecCatalogService {
                         applyRecon(profile.resolvedRecon(), request.getRecon()));
             }
         }
+        if (request.getTags() != null) {
+            domain.setTags(request.getTags());
+        }
     }
 
     private void applyProfile(DatasetConfiguration profile, ProfileUpsertRequest request, boolean creating) {
@@ -206,6 +209,9 @@ public class RecCatalogService {
         }
         if (request.getDatasources() != null) {
             attachNamed(profile, request.getDatasources().getSource(), request.getDatasources().getTarget());
+        }
+        if (request.getTags() != null) {
+            profile.setTags(request.getTags());
         }
         if (creating) {
             ensureSides(profile);

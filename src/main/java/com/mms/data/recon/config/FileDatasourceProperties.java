@@ -20,6 +20,7 @@ public class FileDatasourceProperties {
     private String delimiter = ",";
     private boolean header = true;
     private String calciteSchema = "files";
+    private List<String> tags = List.of();
 
     public FileDatasourceProperties() {}
 
@@ -57,6 +58,9 @@ public class FileDatasourceProperties {
     public void setCalciteSchema(String calciteSchema) {
         this.calciteSchema = calciteSchema == null || calciteSchema.isBlank() ? "files" : calciteSchema;
     }
+
+    public List<String> getTags() { return tags; }
+    public void setTags(List<String> tags) { this.tags = Tags.copy(tags); }
 
     public String resolveCalciteSchema() {
         return calciteSchema == null || calciteSchema.isBlank() ? "files" : calciteSchema;

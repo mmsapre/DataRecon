@@ -14,6 +14,7 @@ public class BigQueryDatasourceProperties {
     private int oauthType = 3;
     private int maxSize = 5;
     private String calciteSchema = "bq";
+    private java.util.List<String> tags = java.util.List.of();
 
     public BigQueryDatasourceProperties() {}
 
@@ -56,6 +57,9 @@ public class BigQueryDatasourceProperties {
 
     public String getCalciteSchema() { return calciteSchema; }
     public void setCalciteSchema(String calciteSchema) { this.calciteSchema = calciteSchema; }
+
+    public java.util.List<String> getTags() { return tags; }
+    public void setTags(java.util.List<String> tags) { this.tags = Tags.copy(tags); }
 
     public String resolveCatalog() {
         if (catalog != null && !catalog.isBlank()) {

@@ -8,6 +8,7 @@ public class MongoDatasourceProperties {
     private String username;
     private String password;
     private String authDatabase = "admin";
+    private java.util.List<String> tags = java.util.List.of();
 
     public MongoDatasourceProperties() {}
 
@@ -61,5 +62,13 @@ public class MongoDatasourceProperties {
 
     public void setAuthDatabase(String authDatabase) {
         this.authDatabase = authDatabase;
+    }
+
+    public java.util.List<String> getTags() {
+        return tags;
+    }
+
+    public void setTags(java.util.List<String> tags) {
+        this.tags = Tags.copy(tags);
     }
 }

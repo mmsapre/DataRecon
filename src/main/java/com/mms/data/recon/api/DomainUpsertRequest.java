@@ -2,6 +2,8 @@ package com.mms.data.recon.api;
 
 import com.mms.data.recon.dataset.HashingStrategy;
 
+import java.util.List;
+
 public class DomainUpsertRequest {
 
     private String id;
@@ -10,6 +12,7 @@ public class DomainUpsertRequest {
     private Integer batchSize;
     private Integer batchConcurrency;
     private ReconRunRequest recon;
+    private List<String> tags;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -28,4 +31,7 @@ public class DomainUpsertRequest {
 
     public ReconRunRequest getRecon() { return recon; }
     public void setRecon(ReconRunRequest recon) { this.recon = recon; }
+
+    public List<String> getTags() { return tags; }
+    public void setTags(List<String> tags) { this.tags = tags; }
 }

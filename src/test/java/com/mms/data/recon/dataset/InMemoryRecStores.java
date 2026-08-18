@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class InMemoryRecStores {
@@ -117,7 +118,7 @@ public final class InMemoryRecStores {
         }
 
         @Override
-        public long create(String domainId, String profileId, Long domainRunId, com.mms.data.recon.dataset.ReconMode mode) {
+        public long create(String domainId, String profileId, Long domainRunId, ReconMode mode) {
             return create(domainId, profileId, domainRunId, mode, null, null, null);
         }
 
@@ -126,22 +127,49 @@ public final class InMemoryRecStores {
                 String domainId,
                 String profileId,
                 Long domainRunId,
-                com.mms.data.recon.dataset.ReconMode mode,
+                ReconMode mode,
                 String sourceQuery,
                 String targetQuery,
                 List<String> conditionFields) {
+            return create(domainId, profileId, domainRunId, mode, sourceQuery, targetQuery, conditionFields,
+                    RunScope.FULL, null);
+        }
+
+        @Override
+        public long create(
+                String domainId,
+                String profileId,
+                Long domainRunId,
+                ReconMode mode,
+                String sourceQuery,
+                String targetQuery,
+                List<String> conditionFields,
+                RunScope scope,
+                Long baselineRunId) {
             long id = nextId.getAndIncrement();
             String datasetId = profileId == null || profileId.isBlank()
                     ? domainId
                     : DatasetConfiguration.qualifiedId(domainId, profileId);
-            runs.put(id, new RecRunRepository.RunView(
+            runs.put(id, view(
                     id, datasetId, domainId, profileId, domainRunId,
                     "RUNNING", Instant.now(), null, 0, 0, 0, 0, 0, 0, null,
                     false, mode == null ? null : mode.name(),
                     sourceQuery, targetQuery,
-                    conditionFields == null ? List.of() : List.copyOf(conditionFields)
+                    conditionFields == null ? List.of() : List.copyOf(conditionFields),
+                    scope == null ? RunScope.FULL.name() : scope.name(),
+                    baselineRunId
             ));
             return id;
+        }
+
+        @Override
+        public RecRunRepository.RunView findActive(String domainId, String profileId) {
+            return runs.values().stream()
+                    .filter(run -> Objects.equals(run.domainId(), domainId)
+                            && Objects.equals(run.profileId(), profileId)
+                            && run.active())
+                    .findFirst()
+                    .orElse(null);
         }
 
         @Override
@@ -149,13 +177,14 @@ public final class InMemoryRecStores {
             this.lastSummary = summary;
             RecRunRepository.RunView prev = runs.get(id);
             if (prev != null) {
-                runs.put(id, new RecRunRepository.RunView(
+                runs.put(id, view(
                         prev.id(), prev.datasetId(), prev.domainId(), prev.profileId(), prev.domainRunId(),
                         "COMPLETED", prev.startedAt(), Instant.now(),
                         summary.sourceCount(), summary.targetCount(), summary.matched(),
                         summary.mismatched(), summary.sourceOnly(), summary.targetOnly(),
                         prev.errorMessage(), prev.active(), prev.reconMode(),
-                        prev.sourceQuery(), prev.targetQuery(), prev.conditionFields()
+                        prev.sourceQuery(), prev.targetQuery(), prev.conditionFields(),
+                        prev.runScope(), prev.baselineRunId()
                 ));
             }
             activate(id);
@@ -169,28 +198,30 @@ public final class InMemoryRecStores {
             }
             runs.replaceAll((ignored, run) -> {
                 if (run.id() != id
-                        && java.util.Objects.equals(run.domainId(), current.domainId())
-                        && java.util.Objects.equals(run.profileId(), current.profileId())
+                        && Objects.equals(run.domainId(), current.domainId())
+                        && Objects.equals(run.profileId(), current.profileId())
                         && run.active()) {
-                    return new RecRunRepository.RunView(
+                    return view(
                             run.id(), run.datasetId(), run.domainId(), run.profileId(), run.domainRunId(),
                             run.status(), run.startedAt(), run.completedAt(),
                             run.sourceCount(), run.targetCount(), run.matched(),
                             run.mismatched(), run.sourceOnly(), run.targetOnly(),
                             run.errorMessage(), false, run.reconMode(),
-                            run.sourceQuery(), run.targetQuery(), run.conditionFields()
+                            run.sourceQuery(), run.targetQuery(), run.conditionFields(),
+                            run.runScope(), run.baselineRunId()
                     );
                 }
                 return run;
             });
             RecRunRepository.RunView latest = runs.get(id);
-            runs.put(id, new RecRunRepository.RunView(
+            runs.put(id, view(
                     latest.id(), latest.datasetId(), latest.domainId(), latest.profileId(), latest.domainRunId(),
                     latest.status(), latest.startedAt(), latest.completedAt(),
                     latest.sourceCount(), latest.targetCount(), latest.matched(),
                     latest.mismatched(), latest.sourceOnly(), latest.targetOnly(),
                     latest.errorMessage(), true, latest.reconMode(),
-                    latest.sourceQuery(), latest.targetQuery(), latest.conditionFields()
+                    latest.sourceQuery(), latest.targetQuery(), latest.conditionFields(),
+                    latest.runScope(), latest.baselineRunId()
             ));
         }
 
@@ -200,13 +231,14 @@ public final class InMemoryRecStores {
             failures.put(id, message);
             RecRunRepository.RunView prev = runs.get(id);
             if (prev != null) {
-                runs.put(id, new RecRunRepository.RunView(
+                runs.put(id, view(
                         prev.id(), prev.datasetId(), prev.domainId(), prev.profileId(), prev.domainRunId(),
                         "FAILED", prev.startedAt(), Instant.now(),
                         prev.sourceCount(), prev.targetCount(), prev.matched(),
                         prev.mismatched(), prev.sourceOnly(), prev.targetOnly(),
                         message, false, prev.reconMode(),
-                        prev.sourceQuery(), prev.targetQuery(), prev.conditionFields()
+                        prev.sourceQuery(), prev.targetQuery(), prev.conditionFields(),
+                        prev.runScope(), prev.baselineRunId()
                 ));
             }
         }
@@ -258,6 +290,20 @@ public final class InMemoryRecStores {
         @Override
         public RecRunRepository.RunView find(long id) {
             return runs.get(id);
+        }
+
+        private static RecRunRepository.RunView view(
+                long id, String datasetId, String domainId, String profileId, Long domainRunId,
+                String status, Instant startedAt, Instant completedAt,
+                long sourceCount, long targetCount, long matched, long mismatched,
+                long sourceOnly, long targetOnly, String errorMessage, boolean active,
+                String reconMode, String sourceQuery, String targetQuery, List<String> conditionFields,
+                String runScope, Long baselineRunId) {
+            return new RecRunRepository.RunView(
+                    id, datasetId, domainId, profileId, domainRunId, status, startedAt, completedAt,
+                    sourceCount, targetCount, matched, mismatched, sourceOnly, targetOnly, errorMessage,
+                    active, reconMode, sourceQuery, targetQuery, conditionFields, runScope, baselineRunId
+            );
         }
     }
 

@@ -10,15 +10,13 @@ import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class CalciteBigQueryCatalog {
 
-    private final Map<String, BigQueryDatasourceProperties> byName;
+    private final ConcurrentHashMap<String, BigQueryDatasourceProperties> byName = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, HikariDataSource> pools = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Connection> connections = new ConcurrentHashMap<>();
 
@@ -28,13 +26,11 @@ public class CalciteBigQueryCatalog {
     }
 
     public CalciteBigQueryCatalog(@Nullable List<BigQueryDatasourceProperties> properties) {
-        Map<String, BigQueryDatasourceProperties> map = new LinkedHashMap<>();
         if (properties != null) {
             for (BigQueryDatasourceProperties property : properties) {
-                map.put(property.getName(), property);
+                byName.put(property.getName(), property);
             }
         }
-        this.byName = Map.copyOf(map);
     }
 
     public boolean has(String datasourceRef) {
@@ -47,6 +43,35 @@ public class CalciteBigQueryCatalog {
             throw new ConfigurationException("Unknown BigQuery datasource: " + datasourceRef);
         }
         return connections.computeIfAbsent(datasourceRef, ignored -> open(properties));
+    }
+
+    public synchronized void register(BigQueryDatasourceProperties properties) {
+        if (properties == null || properties.getName() == null || properties.getName().isBlank()) {
+            throw new ConfigurationException("BigQuery datasource name is required");
+        }
+        String name = properties.getName();
+        byName.put(name, properties);
+        evict(name);
+    }
+
+    public synchronized void unregister(String name) {
+        byName.remove(name);
+        evict(name);
+    }
+
+    private void evict(String name) {
+        Connection previous = connections.remove(name);
+        if (previous != null) {
+            try {
+                previous.close();
+            } catch (SQLException ignored) {
+                // replace cached connection
+            }
+        }
+        HikariDataSource pool = pools.remove(name);
+        if (pool != null) {
+            pool.close();
+        }
     }
 
     private Connection open(BigQueryDatasourceProperties properties) {

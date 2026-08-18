@@ -1,5 +1,7 @@
 package com.mms.data.recon.config;
 
+import java.util.List;
+
 public class PostgresDatasourceProperties {
 
     private String name;
@@ -10,6 +12,7 @@ public class PostgresDatasourceProperties {
     private String username = "postgres";
     private String password = "postgres";
     private int maxSize = 10;
+    private List<String> tags = List.of();
 
     public PostgresDatasourceProperties() {}
 
@@ -40,4 +43,7 @@ public class PostgresDatasourceProperties {
 
     public int getMaxSize() { return maxSize; }
     public void setMaxSize(int maxSize) { this.maxSize = maxSize; }
+
+    public List<String> getTags() { return tags; }
+    public void setTags(List<String> tags) { this.tags = Tags.copy(tags); }
 }

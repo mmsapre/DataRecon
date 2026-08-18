@@ -28,8 +28,8 @@ public class RecRecordRepository {
     public void insertBatch(long runId, List<RecRecord> records) {
         String sql = """
                 INSERT INTO %s
-                    (run_id, migration_key, source_hash, target_hash, status, field_diffs)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (run_id, migration_key, source_hash, target_hash, status, field_diffs, source_payload, target_payload)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """.formatted(recordTable);
 
         try (Connection c = dataSource.getConnection();
@@ -42,6 +42,8 @@ public class RecRecordRepository {
                 ps.setString(4, r.targetHash());
                 ps.setString(5, r.status().name());
                 ps.setString(6, r.fieldDiffs());
+                ps.setString(7, r.sourcePayload());
+                ps.setString(8, r.targetPayload());
                 ps.addBatch();
             }
             ps.executeBatch();
@@ -52,7 +54,7 @@ public class RecRecordRepository {
 
     public List<RecRecord> findByRun(long runId, String status) {
         String sql = """
-                SELECT migration_key, source_hash, target_hash, status, field_diffs
+                SELECT migration_key, source_hash, target_hash, status, field_diffs, source_payload, target_payload
                 FROM %s
                 WHERE run_id = ?
                   AND (? IS NULL OR status = ?)
@@ -73,7 +75,9 @@ public class RecRecordRepository {
                             rs.getString("source_hash"),
                             rs.getString("target_hash"),
                             RecStatus.valueOf(rs.getString("status")),
-                            rs.getString("field_diffs")
+                            rs.getString("field_diffs"),
+                            rs.getString("source_payload"),
+                            rs.getString("target_payload")
                     ));
                 }
                 return out;
@@ -88,10 +92,21 @@ public class RecRecordRepository {
             String sourceHash,
             String targetHash,
             RecStatus status,
-            String fieldDiffs) {
+            String fieldDiffs,
+            String sourcePayload,
+            String targetPayload) {
 
         public RecRecord(String migrationKey, String sourceHash, String targetHash, RecStatus status) {
-            this(migrationKey, sourceHash, targetHash, status, null);
+            this(migrationKey, sourceHash, targetHash, status, null, null, null);
+        }
+
+        public RecRecord(
+                String migrationKey,
+                String sourceHash,
+                String targetHash,
+                RecStatus status,
+                String fieldDiffs) {
+            this(migrationKey, sourceHash, targetHash, status, fieldDiffs, null, null);
         }
     }
 

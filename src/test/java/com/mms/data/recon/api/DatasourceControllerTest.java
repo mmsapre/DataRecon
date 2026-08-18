@@ -1,36 +1,72 @@
 package com.mms.data.recon.api;
 
 import com.mms.data.recon.config.BigQueryDatasourceProperties;
+import com.mms.data.recon.config.CalciteBigQueryCatalog;
+import com.mms.data.recon.config.CalciteFileCatalog;
 import com.mms.data.recon.config.DatasourceCatalog;
 import com.mms.data.recon.config.FileDatasourceProperties;
+import com.mms.data.recon.config.MongoClientCatalog;
 import com.mms.data.recon.config.MongoDatasourceProperties;
+import com.mms.data.recon.config.PostgresConnectionFactoryCatalog;
 import com.mms.data.recon.config.PostgresDatasourceProperties;
+import com.mms.data.recon.config.PostgresDatasourcesProperties;
+import com.mms.data.recon.dataset.DatasourceType;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DatasourceControllerTest {
 
     @Test
-    void listsDefinedDatasources() {
-        DatasourceCatalog catalog = new DatasourceCatalog(
+    void listsCreatesFiltersAndDeletesDatasources() {
+        DatasourceController controller = controller(
                 List.of(new PostgresDatasourceProperties("landing")),
                 List.of(new MongoDatasourceProperties("mongo")),
                 List.of(new BigQueryDatasourceProperties("bq")),
                 List.of(new FileDatasourceProperties("csv"))
         );
 
-        List<DatasourceApiModel> models = new DatasourceController(catalog).list();
+        List<DatasourceApiModel> models = controller.list(null);
         assertEquals(4, models.size());
         assertEquals("bq", models.get(0).name());
         assertEquals("bigquery", models.get(0).type());
-        assertEquals("csv", models.get(1).name());
-        assertEquals("file", models.get(1).type());
-        assertEquals("landing", models.get(2).name());
-        assertEquals("postgres", models.get(2).type());
-        assertEquals("mongo", models.get(3).name());
-        assertEquals("mongo", models.get(3).type());
+
+        DatasourceUpsertRequest create = new DatasourceUpsertRequest();
+        create.setName("staging-pg");
+        create.setType(DatasourceType.postgres);
+        create.setTags(List.of("Staging", "party"));
+        create.setHost("localhost");
+        create.setDatabase("staging");
+        DatasourceApiModel created = controller.create(create).getBody();
+        assertEquals("staging-pg", created.name());
+        assertEquals(List.of("staging", "party"), created.tags());
+
+        assertEquals(1, controller.list("party").size());
+        assertEquals("staging-pg", controller.list("party").get(0).name());
+        assertEquals(HttpStatus.NO_CONTENT, controller.delete("staging-pg").getStatusCode());
+        assertTrue(controller.list("party").isEmpty());
+    }
+
+    private static DatasourceController controller(
+            List<PostgresDatasourceProperties> postgres,
+            List<MongoDatasourceProperties> mongo,
+            List<BigQueryDatasourceProperties> bigquery,
+            List<FileDatasourceProperties> files) {
+        DatasourceCatalog catalog = new DatasourceCatalog(postgres, mongo, bigquery, files);
+        PostgresDatasourcesProperties pgProps = new PostgresDatasourcesProperties();
+        for (PostgresDatasourceProperties item : postgres) {
+            pgProps.getDatasources().put(item.getName(), item);
+        }
+        return new DatasourceController(new DatasourceRegistry(
+                catalog,
+                new PostgresConnectionFactoryCatalog(pgProps),
+                new MongoClientCatalog(mongo),
+                new CalciteBigQueryCatalog(bigquery),
+                new CalciteFileCatalog(files)
+        ));
     }
 }

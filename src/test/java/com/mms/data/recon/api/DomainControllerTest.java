@@ -60,11 +60,12 @@ class DomainControllerTest {
                 new RecCatalogService(configuration, catalog, null)
         );
 
-        List<DomainApiModel> models = controller.listDomains();
+        List<DomainApiModel> models = controller.listDomains(null);
         assertEquals(1, models.size());
         assertEquals("party", models.get(0).id());
         assertEquals("1h", models.get(0).schedule());
         assertEquals(1, models.get(0).profiles().size());
+        assertEquals(List.of(), models.get(0).tags());
 
         ProfileApiModel listed = controller.getProfile("party", "pg-bigquery");
         assertEquals("party", listed.domainId());
@@ -80,6 +81,7 @@ class DomainControllerTest {
         assertEquals(List.of("party_id"), listed.migrationKeyColumns());
         assertEquals("MISMATCH_DETAILS", listed.reconMode());
         assertEquals(List.of(), listed.conditionFields());
+        assertEquals(List.of(), listed.tags());
     }
 
     @Test
@@ -100,11 +102,14 @@ class DomainControllerTest {
         DomainUpsertRequest domain = new DomainUpsertRequest();
         domain.setId("account");
         domain.setSchedule("30m");
+        domain.setTags(List.of("finance"));
         assertEquals("account", controller.createDomain(domain).getBody().id());
         assertEquals("30m", controller.getDomain("account").schedule());
+        assertEquals(List.of("finance"), controller.getDomain("account").tags());
 
         ProfileUpsertRequest profile = new ProfileUpsertRequest();
         profile.setId("pg-bq");
+        profile.setTags(List.of("nightly"));
         profile.setMigrationKey(MigrationKeySpec.single("account_id"));
         SideRequest source = new SideRequest();
         source.setDatasource("landing");
@@ -122,6 +127,8 @@ class DomainControllerTest {
         assertEquals("postgres", created.sourceType());
         assertEquals("bq", created.targetDatasource());
         assertEquals("bigquery", created.targetType());
+        assertEquals(List.of("nightly"), created.tags());
+        assertEquals(1, controller.listProfiles("account", "nightly").size());
         assertEquals("FIELD_DETAILS", controller.updateProfile("account", "pg-bq", reconPolicy()).reconMode());
 
         AttachDatasourcesRequest attach = new AttachDatasourcesRequest();

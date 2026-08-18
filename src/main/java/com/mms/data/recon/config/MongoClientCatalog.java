@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class MongoClientCatalog {
 
-    private final Map<String, MongoDatasourceProperties> byName;
+    private final ConcurrentHashMap<String, MongoDatasourceProperties> byName = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, MongoClient> clients = new ConcurrentHashMap<>();
 
     @Autowired
@@ -28,13 +28,11 @@ public class MongoClientCatalog {
     }
 
     public MongoClientCatalog(@Nullable List<MongoDatasourceProperties> properties) {
-        Map<String, MongoDatasourceProperties> map = new LinkedHashMap<>();
         if (properties != null) {
             for (MongoDatasourceProperties property : properties) {
-                map.put(property.getName(), property);
+                byName.put(property.getName(), property);
             }
         }
-        this.byName = Map.copyOf(map);
     }
 
     public boolean has(String datasourceRef) {
@@ -48,6 +46,26 @@ public class MongoClientCatalog {
         }
         MongoClient client = clients.computeIfAbsent(datasourceRef, ignored -> create(properties));
         return client.getDatabase(resolveDatabase(properties));
+    }
+
+    public synchronized void register(MongoDatasourceProperties properties) {
+        if (properties == null || properties.getName() == null || properties.getName().isBlank()) {
+            throw new ConfigurationException("Mongo datasource name is required");
+        }
+        String name = properties.getName();
+        byName.put(name, properties);
+        MongoClient previous = clients.remove(name);
+        if (previous != null) {
+            previous.close();
+        }
+    }
+
+    public synchronized void unregister(String name) {
+        byName.remove(name);
+        MongoClient previous = clients.remove(name);
+        if (previous != null) {
+            previous.close();
+        }
     }
 
     private static MongoClient create(MongoDatasourceProperties properties) {

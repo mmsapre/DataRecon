@@ -35,7 +35,7 @@ public class DomainRecRunController {
     public Mono<ResponseEntity<DomainRunTriggerApiModel>> runDomain(
             @PathVariable String domainId,
             @Nullable @RequestBody ReconRunRequest request) {
-        return service.runDomain(domainId, mode(request), fields(request))
+        return service.runDomain(domainId, mode(request), fields(request), forceFull(request))
                 .map(result -> ResponseEntity.accepted()
                         .body(new DomainRunTriggerApiModel(
                                 result.domainId(),
@@ -66,7 +66,7 @@ public class DomainRecRunController {
             @PathVariable String domainId,
             @PathVariable String profileId,
             @Nullable @RequestBody ReconRunRequest request) {
-        return service.runProfile(domainId, profileId, mode(request), fields(request))
+        return service.runProfile(domainId, profileId, mode(request), fields(request), forceFull(request))
                 .map(id -> ResponseEntity.accepted()
                         .body(new ProfileRunTriggerApiModel(domainId, profileId, id)));
     }
@@ -120,7 +120,8 @@ public class DomainRecRunController {
                 r.sourceCount(), r.targetCount(), r.matched(),
                 r.mismatched(), r.sourceOnly(), r.targetOnly(), r.errorMessage(),
                 r.active(), r.reconMode(),
-                r.sourceQuery(), r.targetQuery(), r.conditionFields()
+                r.sourceQuery(), r.targetQuery(), r.conditionFields(),
+                r.runScope(), r.baselineRunId()
         );
     }
 
@@ -130,6 +131,10 @@ public class DomainRecRunController {
 
     private static List<String> fields(ReconRunRequest request) {
         return request == null ? null : request.getConditionFields();
+    }
+
+    private static boolean forceFull(ReconRunRequest request) {
+        return request != null && Boolean.TRUE.equals(request.getForceFull());
     }
 
     private static ReconRunRequest toRequest(ReconSettings recon) {

@@ -3,6 +3,7 @@ package com.mms.data.recon.recrun;
 import com.mms.data.recon.config.ReconDatabaseProperties;
 import com.mms.data.recon.dataset.DatasetConfiguration;
 import com.mms.data.recon.dataset.ReconMode;
+import com.mms.data.recon.dataset.RunScope;
 import com.mms.data.recon.util.ThrowableUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -49,6 +50,18 @@ public class RecRunRepository {
             String sourceQuery,
             String targetQuery,
             List<String> conditionFields) {
+        return create(profile, domainRunId, mode, sourceQuery, targetQuery, conditionFields, RunScope.FULL, null);
+    }
+
+    public long create(
+            DatasetConfiguration profile,
+            Long domainRunId,
+            ReconMode mode,
+            String sourceQuery,
+            String targetQuery,
+            List<String> conditionFields,
+            com.mms.data.recon.dataset.RunScope scope,
+            Long baselineRunId) {
         String domainId = profile.getDomainId() != null ? profile.getDomainId() : profile.getId();
         return create(
                 domainId,
@@ -57,7 +70,9 @@ public class RecRunRepository {
                 mode,
                 sourceQuery,
                 targetQuery,
-                conditionFields
+                conditionFields,
+                scope,
+                baselineRunId
         );
     }
 
@@ -81,13 +96,26 @@ public class RecRunRepository {
             String sourceQuery,
             String targetQuery,
             List<String> conditionFields) {
+        return create(domainId, profileId, domainRunId, mode, sourceQuery, targetQuery, conditionFields, RunScope.FULL, null);
+    }
+
+    public long create(
+            String domainId,
+            String profileId,
+            Long domainRunId,
+            ReconMode mode,
+            String sourceQuery,
+            String targetQuery,
+            List<String> conditionFields,
+            RunScope scope,
+            Long baselineRunId) {
         String datasetId = profileId == null || profileId.isBlank()
                 ? domainId
                 : DatasetConfiguration.qualifiedId(domainId, profileId);
         String sql = """
                 INSERT INTO %s(dataset_id, domain_id, profile_id, domain_run_id, status, started_at, active,
-                               recon_mode, source_query, target_query, condition_fields)
-                VALUES (?, ?, ?, ?, 'RUNNING', now(), false, ?, ?, ?, ?)
+                               recon_mode, source_query, target_query, condition_fields, run_scope, baseline_run_id)
+                VALUES (?, ?, ?, ?, 'RUNNING', now(), false, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """.formatted(runTable);
 
@@ -105,12 +133,41 @@ public class RecRunRepository {
             ps.setString(6, blankToNull(sourceQuery));
             ps.setString(7, blankToNull(targetQuery));
             ps.setString(8, joinFields(conditionFields));
+            ps.setString(9, scope == null ? RunScope.FULL.name() : scope.name());
+            if (baselineRunId == null) {
+                ps.setNull(10, Types.BIGINT);
+            } else {
+                ps.setLong(10, baselineRunId);
+            }
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
                 return rs.getLong(1);
             }
         } catch (SQLException e) {
             throw new IllegalStateException("Unable to create reconciliation run", e);
+        }
+    }
+
+    public RunView findActive(String domainId, String profileId) {
+        String sql = selectSql() + """
+                 WHERE domain_id = ?
+                   AND profile_id IS NOT DISTINCT FROM ?
+                   AND active = true
+                 ORDER BY id DESC
+                 LIMIT 1
+                """;
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, domainId);
+            ps.setString(2, blankToNull(profileId));
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return null;
+                }
+                return map(rs);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Unable to load active reconciliation run", e);
         }
     }
 
@@ -285,7 +342,8 @@ public class RecRunRepository {
                 SELECT id, dataset_id, domain_id, profile_id, domain_run_id, status, started_at, completed_at,
                        source_count, target_count, matched_count,
                        mismatched_count, source_only_count, target_only_count,
-                       error_message, active, recon_mode, source_query, target_query, condition_fields
+                       error_message, active, recon_mode, source_query, target_query, condition_fields,
+                       run_scope, baseline_run_id
                   FROM %s
                 """.formatted(runTable);
     }
@@ -294,6 +352,8 @@ public class RecRunRepository {
         Timestamp completed = rs.getTimestamp("completed_at");
         long domainRun = rs.getLong("domain_run_id");
         boolean domainRunNull = rs.wasNull();
+        long baseline = rs.getLong("baseline_run_id");
+        boolean baselineNull = rs.wasNull();
         return new RunView(
                 rs.getLong("id"),
                 rs.getString("dataset_id"),
@@ -314,7 +374,9 @@ public class RecRunRepository {
                 rs.getString("recon_mode"),
                 rs.getString("source_query"),
                 rs.getString("target_query"),
-                splitFields(rs.getString("condition_fields"))
+                splitFields(rs.getString("condition_fields")),
+                rs.getString("run_scope"),
+                baselineNull ? null : baseline
         );
     }
 
@@ -379,5 +441,7 @@ public class RecRunRepository {
             String reconMode,
             String sourceQuery,
             String targetQuery,
-            List<String> conditionFields) {}
+            List<String> conditionFields,
+            String runScope,
+            Long baselineRunId) {}
 }

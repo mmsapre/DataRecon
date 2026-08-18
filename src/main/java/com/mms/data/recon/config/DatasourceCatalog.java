@@ -10,11 +10,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class DatasourceCatalog {
 
-    private final Map<String, DatasourceType> types;
+    private final ConcurrentHashMap<String, DatasourceType> types = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, List<String>> tagsByName = new ConcurrentHashMap<>();
 
     @Autowired
     public DatasourceCatalog(
@@ -30,12 +32,10 @@ public class DatasourceCatalog {
             @Nullable List<MongoDatasourceProperties> mongo,
             @Nullable List<BigQueryDatasourceProperties> bigquery,
             @Nullable List<FileDatasourceProperties> files) {
-        Map<String, DatasourceType> map = new LinkedHashMap<>();
-        addAll(map, postgres, DatasourceType.postgres);
-        addAll(map, mongo, DatasourceType.mongo);
-        addAll(map, bigquery, DatasourceType.bigquery);
-        addAll(map, files, DatasourceType.file);
-        this.types = Map.copyOf(map);
+        addAll(postgres, DatasourceType.postgres);
+        addAll(mongo, DatasourceType.mongo);
+        addAll(bigquery, DatasourceType.bigquery);
+        addAll(files, DatasourceType.file);
     }
 
     public Optional<DatasourceType> typeOf(String datasourceRef) {
@@ -56,29 +56,70 @@ public class DatasourceCatalog {
     }
 
     public Set<String> names() {
-        return types.keySet();
+        return Set.copyOf(types.keySet());
     }
 
     public Map<String, DatasourceType> asMap() {
-        return types;
+        return Map.copyOf(types);
     }
 
-    private static void addAll(
-            Map<String, DatasourceType> map,
-            List<?> properties,
-            DatasourceType type) {
+    public List<String> tagsOf(String datasourceRef) {
+        return tagsByName.getOrDefault(datasourceRef, List.of());
+    }
+
+    public synchronized void register(String name, DatasourceType type, List<String> tags) {
+        if (name == null || name.isBlank()) {
+            throw new ConfigurationException("Datasource name is required");
+        }
+        if (type == null) {
+            throw new ConfigurationException("Datasource type is required");
+        }
+        DatasourceType existing = types.put(name, type);
+        if (existing != null && existing != type) {
+            types.put(name, existing);
+            throw new ConfigurationException(
+                    "Datasource [" + name + "] is already registered as " + existing
+            );
+        }
+        tagsByName.put(name, Tags.normalize(tags));
+    }
+
+    public synchronized void unregister(String name) {
+        types.remove(name);
+        tagsByName.remove(name);
+    }
+
+    private void addAll(List<?> properties, DatasourceType type) {
         if (properties == null) {
             return;
         }
         for (Object property : properties) {
             String name = nameOf(property);
-            DatasourceType existing = map.put(name, type);
+            List<String> tags = tagsOfProperty(property);
+            DatasourceType existing = types.put(name, type);
             if (existing != null && existing != type) {
                 throw new ConfigurationException(
                         "Datasource [" + name + "] is configured as both " + existing + " and " + type
                 );
             }
+            tagsByName.put(name, Tags.normalize(tags));
         }
+    }
+
+    private static List<String> tagsOfProperty(Object property) {
+        if (property instanceof PostgresDatasourceProperties postgres) {
+            return postgres.getTags();
+        }
+        if (property instanceof MongoDatasourceProperties mongo) {
+            return mongo.getTags();
+        }
+        if (property instanceof BigQueryDatasourceProperties bigquery) {
+            return bigquery.getTags();
+        }
+        if (property instanceof FileDatasourceProperties file) {
+            return file.getTags();
+        }
+        return List.of();
     }
 
     private static String nameOf(Object property) {

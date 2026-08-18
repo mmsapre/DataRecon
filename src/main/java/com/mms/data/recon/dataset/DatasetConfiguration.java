@@ -21,6 +21,7 @@ public class DatasetConfiguration {
     private HashingStrategy hashingStrategy;
     private Path queryFileBaseDir;
     private String schedule;
+    private java.util.List<String> tags = java.util.List.of();
 
     public static String qualifiedId(String domainId, String profileId) {
         return domainId + "." + profileId;
@@ -168,4 +169,9 @@ public class DatasetConfiguration {
 
     public String getSchedule() { return schedule; }
     public void setSchedule(String schedule) { this.schedule = schedule; }
+
+    public java.util.List<String> getTags() { return tags; }
+    public void setTags(java.util.List<String> tags) {
+        this.tags = com.mms.data.recon.config.Tags.copy(tags);
+    }
 }

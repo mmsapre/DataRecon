@@ -22,6 +22,7 @@ public class DomainConfiguration {
     private HashingStrategy hashingStrategy;
     private Path queryFileBaseDir;
     private ReconSettings recon = new ReconSettings();
+    private java.util.List<String> tags = java.util.List.of();
     private Map<String, DatasetConfiguration> profiles = new LinkedHashMap<>();
 
     public void initialize(String id, RecConfiguration.Defaults defaults) {
@@ -82,6 +83,11 @@ public class DomainConfiguration {
     public ReconSettings getRecon() { return recon; }
     public void setRecon(ReconSettings recon) {
         this.recon = recon == null ? new ReconSettings() : recon;
+    }
+
+    public java.util.List<String> getTags() { return tags; }
+    public void setTags(java.util.List<String> tags) {
+        this.tags = com.mms.data.recon.config.Tags.copy(tags);
     }
 
     public Map<String, DatasetConfiguration> getProfiles() { return profiles; }
