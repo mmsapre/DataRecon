@@ -63,7 +63,7 @@ jacoco.exec
 .coverage
 
 # DuckDB recon snapshots (runtime)
-data/
+/data/
 *.duckdb
 *.duckdb.wal
 

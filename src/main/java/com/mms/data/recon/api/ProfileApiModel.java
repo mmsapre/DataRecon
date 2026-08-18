@@ -1,5 +1,8 @@
 package com.mms.data.recon.api;
 
+import java.time.Instant;
+import java.util.List;
+
 public record ProfileApiModel(
         String domainId,
         String profileId,
@@ -9,9 +12,15 @@ public record ProfileApiModel(
         String targetDatasource,
         String targetType,
         String migrationKeyType,
-        java.util.List<String> migrationKeyColumns,
+        List<String> migrationKeyColumns,
         String hashingStrategy,
         String schedule,
         String reconMode,
-        java.util.List<String> conditionFields,
-        java.util.List<String> tags) {}
+        List<String> conditionFields,
+        List<String> tags,
+        Instant createdAt,
+        String createdBy,
+        Instant updatedAt,
+        String updatedBy,
+        boolean active,
+        int version) {}

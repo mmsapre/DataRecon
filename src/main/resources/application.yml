@@ -19,6 +19,9 @@ spring:
     placeholders:
       runTable: ${mms.recon.database.tables.run:rec_run}
       recordTable: ${mms.recon.database.tables.record:rec_record}
+      datasourceTable: ${mms.recon.database.tables.datasource:rec_datasource}
+      domainTable: ${mms.recon.database.tables.domain:rec_domain}
+      profileTable: ${mms.recon.database.tables.profile:rec_profile}
 
 server:
   port: ${SERVER_PORT:8080}
@@ -41,7 +44,10 @@ mms:
     build:
       version: ${MMS_RECON_VERSION:dev}
 
-    # Recon DB only (rec_run / rec_record). Not source/target business DBs.
+    # Actor stamped on created_by / updated_by when the application writes rows.
+    actor: ${DATA_RECON_ACTOR:${spring.application.name:data-recon}}
+
+    # Recon DB only (rec_run / rec_record / catalog tables). Not source/target business DBs.
     database:
       host: ${DATA_RECON_DB_HOST:localhost}
       port: ${DATA_RECON_DB_PORT:5432}
@@ -53,6 +59,9 @@ mms:
       tables:
         run: ${DATA_RECON_DB_RUN_TABLE:rec_run}
         record: ${DATA_RECON_DB_RECORD_TABLE:rec_record}
+        datasource: ${DATA_RECON_DB_DATASOURCE_TABLE:rec_datasource}
+        domain: ${DATA_RECON_DB_DOMAIN_TABLE:rec_domain}
+        profile: ${DATA_RECON_DB_PROFILE_TABLE:rec_profile}
 
     # Optional summaries (not datasources/domains).
     llm:

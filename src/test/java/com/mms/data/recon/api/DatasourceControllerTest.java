@@ -44,6 +44,17 @@ class DatasourceControllerTest {
         DatasourceApiModel created = controller.create(create).getBody();
         assertEquals("staging-pg", created.name());
         assertEquals(List.of("staging", "party"), created.tags());
+        assertEquals("data-recon", created.createdBy());
+        assertEquals(1, created.version());
+        assertEquals(true, created.active());
+
+        DatasourceUpsertRequest update = new DatasourceUpsertRequest();
+        update.setHost("127.0.0.1");
+        update.setDatabase("staging2");
+        DatasourceApiModel updated = controller.update("staging-pg", update);
+        assertEquals(2, updated.version());
+        assertEquals("data-recon", updated.updatedBy());
+        assertEquals(true, updated.active());
 
         assertEquals(1, controller.list("party").size());
         assertEquals("staging-pg", controller.list("party").get(0).name());

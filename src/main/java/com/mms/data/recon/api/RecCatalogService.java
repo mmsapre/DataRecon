@@ -1,5 +1,6 @@
 package com.mms.data.recon.api;
 
+import com.mms.data.recon.config.CatalogAudit;
 import com.mms.data.recon.config.ConfigurationException;
 import com.mms.data.recon.config.DatasourceCatalog;
 import com.mms.data.recon.config.RecConfiguration;
@@ -10,6 +11,7 @@ import com.mms.data.recon.dataset.DomainConfiguration;
 import com.mms.data.recon.dataset.ProfileDatasources;
 import com.mms.data.recon.dataset.ReconSettings;
 import jakarta.annotation.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,14 +22,28 @@ public class RecCatalogService {
     private final RecConfiguration configuration;
     private final DatasourceCatalog catalog;
     private final DatasetRecScheduler scheduler;
+    @Nullable
+    private final CatalogRepository catalogRepository;
+    private final String actor;
 
     public RecCatalogService(
             RecConfiguration configuration,
             DatasourceCatalog catalog,
             @Nullable DatasetRecScheduler scheduler) {
+        this(configuration, catalog, scheduler, null);
+    }
+
+    @Autowired
+    public RecCatalogService(
+            RecConfiguration configuration,
+            DatasourceCatalog catalog,
+            @Nullable DatasetRecScheduler scheduler,
+            @Nullable CatalogRepository catalogRepository) {
         this.configuration = configuration;
         this.catalog = catalog;
         this.scheduler = scheduler;
+        this.catalogRepository = catalogRepository;
+        this.actor = configuration.getActor();
     }
 
     public synchronized DomainConfiguration createDomain(DomainUpsertRequest request) {
@@ -42,22 +58,46 @@ public class RecCatalogService {
         } catch (RuntimeException e) {
             throw wrap(e);
         }
+        CatalogAudit audit = CatalogAudit.create(actor);
+        domain.setAudit(audit);
         configuration.putDomain(id, domain);
+        persistDomainInsert(id, domain, audit);
         sync(domain);
         return domain;
     }
 
     public synchronized DomainConfiguration updateDomain(String domainId, DomainUpsertRequest request) {
         DomainConfiguration domain = requireDomain(domainId);
+        boolean reconCascaded = request != null && request.getRecon() != null;
         applyDomain(domain, request, false);
+        CatalogAudit previous = auditOf(domain);
+        CatalogAudit deactivated = previous.deactivate(actor);
+        CatalogAudit next = previous.nextVersion(actor);
+        domain.setAudit(next);
+        if (catalogRepository != null) {
+            catalogRepository.deactivateDomain(domainId, deactivated);
+            catalogRepository.insertDomain(domainId, domain.getTags(), CatalogPayloads.fromDomain(domain), next);
+        }
+        if (reconCascaded) {
+            for (var entry : domain.getProfiles().entrySet()) {
+                versionProfile(domainId, entry.getKey(), entry.getValue());
+            }
+        }
         sync(domain);
         return domain;
     }
 
     public synchronized DomainConfiguration deleteDomain(String domainId) {
         DomainConfiguration domain = requireDomain(domainId);
+        CatalogAudit deactivated = auditOf(domain).deactivate(actor);
+        domain.setAudit(deactivated);
         cancel(domainId);
-        return configuration.removeDomain(domainId);
+        DomainConfiguration removed = configuration.removeDomain(domainId);
+        if (catalogRepository != null) {
+            catalogRepository.deactivateDomain(domainId, deactivated);
+            catalogRepository.deactivateProfilesForDomain(domainId, deactivated);
+        }
+        return removed;
     }
 
     public synchronized DatasetConfiguration createProfile(String domainId, ProfileUpsertRequest request) {
@@ -68,7 +108,10 @@ public class RecCatalogService {
         }
         DatasetConfiguration profile = new DatasetConfiguration();
         applyProfile(profile, request, true);
+        CatalogAudit audit = CatalogAudit.create(actor);
+        profile.setAudit(audit);
         DatasetConfiguration stored = storeProfile(domainId, profileId, profile);
+        persistProfileInsert(domainId, profileId, stored, audit);
         sync(domain);
         return stored;
     }
@@ -79,14 +122,20 @@ public class RecCatalogService {
             ProfileUpsertRequest request) {
         DatasetConfiguration profile = requireProfile(domainId, profileId);
         applyProfile(profile, request, false);
+        versionProfile(domainId, profileId, profile);
         DatasetConfiguration stored = storeProfile(domainId, profileId, profile);
         sync(configuration.requireDomain(domainId));
         return stored;
     }
 
     public synchronized DatasetConfiguration deleteProfile(String domainId, String profileId) {
-        requireProfile(domainId, profileId);
+        DatasetConfiguration profile = requireProfile(domainId, profileId);
+        CatalogAudit deactivated = auditOf(profile).deactivate(actor);
+        profile.setAudit(deactivated);
         DatasetConfiguration removed = configuration.removeProfile(domainId, profileId);
+        if (catalogRepository != null) {
+            catalogRepository.deactivateProfile(domainId, profileId, deactivated);
+        }
         sync(configuration.requireDomain(domainId));
         return removed;
     }
@@ -100,6 +149,7 @@ public class RecCatalogService {
         }
         DatasetConfiguration profile = requireProfile(domainId, profileId);
         attachNamed(profile, request.getSource(), request.getTarget());
+        versionProfile(domainId, profileId, profile);
         DatasetConfiguration stored = storeProfile(domainId, profileId, profile);
         sync(configuration.requireDomain(domainId));
         return stored;
@@ -111,6 +161,33 @@ public class RecCatalogService {
 
     public synchronized DatasetConfiguration updateTarget(String domainId, String profileId, SideRequest request) {
         return updateSide(domainId, profileId, false, request);
+    }
+
+    /** Restore an active domain from the catalog store (no new DB write). */
+    public synchronized void hydrateDomain(String domainId, DomainUpsertRequest request, CatalogAudit audit) {
+        DomainConfiguration domain = new DomainConfiguration();
+        applyDomain(domain, request, true);
+        try {
+            domain.initialize(domainId, configuration.getDefaults(), false);
+        } catch (RuntimeException e) {
+            throw wrap(e);
+        }
+        domain.setAudit(audit == null ? CatalogAudit.create(actor) : audit);
+        configuration.putDomain(domainId, domain);
+        sync(domain);
+    }
+
+    /** Restore an active profile from the catalog store (no new DB write). */
+    public synchronized void hydrateProfile(
+            String domainId,
+            String profileId,
+            ProfileUpsertRequest request,
+            CatalogAudit audit) {
+        DatasetConfiguration profile = new DatasetConfiguration();
+        applyProfile(profile, request, true);
+        profile.setAudit(audit == null ? CatalogAudit.create(actor) : audit);
+        storeProfile(domainId, profileId, profile);
+        sync(configuration.requireDomain(domainId));
     }
 
     private DatasetConfiguration updateSide(
@@ -127,9 +204,57 @@ public class RecCatalogService {
             requireKnownDatasource(request.getDatasource());
         }
         request.applyTo(source ? profile.getSource() : profile.getTarget());
+        versionProfile(domainId, profileId, profile);
         DatasetConfiguration stored = storeProfile(domainId, profileId, profile);
         sync(configuration.requireDomain(domainId));
         return stored;
+    }
+
+    private void versionProfile(String domainId, String profileId, DatasetConfiguration profile) {
+        CatalogAudit previous = auditOf(profile);
+        CatalogAudit deactivated = previous.deactivate(actor);
+        CatalogAudit next = previous.nextVersion(actor);
+        profile.setAudit(next);
+        if (catalogRepository != null) {
+            catalogRepository.deactivateProfile(domainId, profileId, deactivated);
+            catalogRepository.insertProfile(
+                    domainId,
+                    profileId,
+                    profile.getTags(),
+                    CatalogPayloads.fromProfile(profile),
+                    next
+            );
+        }
+    }
+
+    private void persistDomainInsert(String id, DomainConfiguration domain, CatalogAudit audit) {
+        if (catalogRepository != null) {
+            catalogRepository.insertDomain(id, domain.getTags(), CatalogPayloads.fromDomain(domain), audit);
+        }
+    }
+
+    private void persistProfileInsert(
+            String domainId,
+            String profileId,
+            DatasetConfiguration profile,
+            CatalogAudit audit) {
+        if (catalogRepository != null) {
+            catalogRepository.insertProfile(
+                    domainId,
+                    profileId,
+                    profile.getTags(),
+                    CatalogPayloads.fromProfile(profile),
+                    audit
+            );
+        }
+    }
+
+    private CatalogAudit auditOf(DomainConfiguration domain) {
+        return domain.getAudit() == null ? CatalogAudit.create(actor) : domain.getAudit();
+    }
+
+    private CatalogAudit auditOf(DatasetConfiguration profile) {
+        return profile.getAudit() == null ? CatalogAudit.create(actor) : profile.getAudit();
     }
 
     private void applyDomain(DomainConfiguration domain, DomainUpsertRequest request, boolean creating) {
@@ -247,7 +372,12 @@ public class RecCatalogService {
 
     private DatasetConfiguration storeProfile(String domainId, String profileId, DatasetConfiguration profile) {
         try {
-            return configuration.putProfile(domainId, profileId, profile);
+            CatalogAudit audit = profile.getAudit();
+            DatasetConfiguration stored = configuration.putProfile(domainId, profileId, profile);
+            if (audit != null) {
+                stored.setAudit(audit);
+            }
+            return stored;
         } catch (RuntimeException e) {
             throw wrap(e);
         }

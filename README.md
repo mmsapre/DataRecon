@@ -375,8 +375,10 @@ http://localhost:8080/v3/api-docs
 
 Use **Authorize** in Swagger UI with basic auth (`DATA_RECON_USER` / `DATA_RECON_PASSWORD`) before calling `/api` endpoints. Spec and UI are anonymous; APIs stay authenticated.
 
-YAML still seeds datasources (`mms.recon.postgres|mongodb|bigquery|file.datasources`) and domains.
-API create/update for datasources, domains, and profiles is in-memory; a restart reloads YAML only.
+Datasources, domains, and profiles are defined via API and persisted in the recon DB
+(`rec_datasource`, `rec_domain`, `rec_profile`). Updates insert a new version and mark the
+previous row inactive. Actor for `created_by` / `updated_by` is `mms.recon.actor`
+(defaults to `spring.application.name` / `data-recon`).
 
 ```bash
 # 1) Register datasources (or use YAML-seeded names)

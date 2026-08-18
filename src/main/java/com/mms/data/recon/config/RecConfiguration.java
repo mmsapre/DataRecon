@@ -14,8 +14,18 @@ import java.util.Map;
 @ConfigurationProperties(MmsRecon.PREFIX)
 public class RecConfiguration {
 
+    /** Stamped on created_by / updated_by when the application writes rows. */
+    private String actor = "data-recon";
     private Defaults defaults = new Defaults();
     private Map<String, DomainConfiguration> domains = new LinkedHashMap<>();
+
+    public String getActor() {
+        return actor == null || actor.isBlank() ? "data-recon" : actor.trim();
+    }
+
+    public void setActor(String actor) {
+        this.actor = actor;
+    }
 
     public Defaults getDefaults() { return defaults; }
     public void setDefaults(Defaults defaults) { this.defaults = defaults; }

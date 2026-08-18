@@ -103,7 +103,11 @@ class DomainControllerTest {
         domain.setId("account");
         domain.setSchedule("30m");
         domain.setTags(List.of("finance"));
-        assertEquals("account", controller.createDomain(domain).getBody().id());
+        DomainApiModel createdDomain = controller.createDomain(domain).getBody();
+        assertEquals("account", createdDomain.id());
+        assertEquals("data-recon", createdDomain.createdBy());
+        assertEquals(1, createdDomain.version());
+        assertEquals(true, createdDomain.active());
         assertEquals("30m", controller.getDomain("account").schedule());
         assertEquals(List.of("finance"), controller.getDomain("account").tags());
 
@@ -128,8 +132,14 @@ class DomainControllerTest {
         assertEquals("bq", created.targetDatasource());
         assertEquals("bigquery", created.targetType());
         assertEquals(List.of("nightly"), created.tags());
+        assertEquals("data-recon", created.createdBy());
+        assertEquals(1, created.version());
         assertEquals(1, controller.listProfiles("account", "nightly").size());
-        assertEquals("FIELD_DETAILS", controller.updateProfile("account", "pg-bq", reconPolicy()).reconMode());
+        ProfileApiModel updated = controller.updateProfile("account", "pg-bq", reconPolicy());
+        assertEquals("FIELD_DETAILS", updated.reconMode());
+        assertEquals(2, updated.version());
+        assertEquals(true, updated.active());
+        assertEquals("data-recon", updated.updatedBy());
 
         AttachDatasourcesRequest attach = new AttachDatasourcesRequest();
         attach.setSource("landing");

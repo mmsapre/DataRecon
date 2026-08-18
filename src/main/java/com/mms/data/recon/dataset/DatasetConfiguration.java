@@ -22,6 +22,7 @@ public class DatasetConfiguration {
     private Path queryFileBaseDir;
     private String schedule;
     private java.util.List<String> tags = java.util.List.of();
+    private transient com.mms.data.recon.config.CatalogAudit audit;
 
     public static String qualifiedId(String domainId, String profileId) {
         return domainId + "." + profileId;
@@ -174,4 +175,7 @@ public class DatasetConfiguration {
     public void setTags(java.util.List<String> tags) {
         this.tags = com.mms.data.recon.config.Tags.copy(tags);
     }
+
+    public com.mms.data.recon.config.CatalogAudit getAudit() { return audit; }
+    public void setAudit(com.mms.data.recon.config.CatalogAudit audit) { this.audit = audit; }
 }

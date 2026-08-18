@@ -1,5 +1,6 @@
 package com.mms.data.recon.recrun;
 
+import com.mms.data.recon.config.RecConfiguration;
 import com.mms.data.recon.config.ReconDatabaseProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -14,22 +15,28 @@ public class RecRecordRepository {
 
     private final DataSource dataSource;
     private final String recordTable;
+    private final String createdBy;
 
     public RecRecordRepository(DataSource dataSource) {
-        this(dataSource, new ReconDatabaseProperties());
+        this(dataSource, new ReconDatabaseProperties(), null);
     }
 
     @Autowired
-    public RecRecordRepository(DataSource dataSource, ReconDatabaseProperties database) {
+    public RecRecordRepository(
+            DataSource dataSource,
+            ReconDatabaseProperties database,
+            RecConfiguration configuration) {
         this.dataSource = dataSource;
         this.recordTable = database.qualifiedRecordTable();
+        this.createdBy = configuration == null ? "data-recon" : configuration.getActor();
     }
 
     public void insertBatch(long runId, List<RecRecord> records) {
         String sql = """
                 INSERT INTO %s
-                    (run_id, migration_key, source_hash, target_hash, status, field_diffs, source_payload, target_payload)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (run_id, migration_key, source_hash, target_hash, status, field_diffs,
+                     source_payload, target_payload, created_at, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, now(), ?)
                 """.formatted(recordTable);
 
         try (Connection c = dataSource.getConnection();
@@ -44,6 +51,7 @@ public class RecRecordRepository {
                 ps.setString(6, r.fieldDiffs());
                 ps.setString(7, r.sourcePayload());
                 ps.setString(8, r.targetPayload());
+                ps.setString(9, createdBy);
                 ps.addBatch();
             }
             ps.executeBatch();

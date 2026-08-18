@@ -24,6 +24,7 @@ public class DomainConfiguration {
     private ReconSettings recon = new ReconSettings();
     private java.util.List<String> tags = java.util.List.of();
     private Map<String, DatasetConfiguration> profiles = new LinkedHashMap<>();
+    private transient com.mms.data.recon.config.CatalogAudit audit;
 
     public void initialize(String id, RecConfiguration.Defaults defaults) {
         initialize(id, defaults, true);
@@ -89,6 +90,9 @@ public class DomainConfiguration {
     public void setTags(java.util.List<String> tags) {
         this.tags = com.mms.data.recon.config.Tags.copy(tags);
     }
+
+    public com.mms.data.recon.config.CatalogAudit getAudit() { return audit; }
+    public void setAudit(com.mms.data.recon.config.CatalogAudit audit) { this.audit = audit; }
 
     public Map<String, DatasetConfiguration> getProfiles() { return profiles; }
 

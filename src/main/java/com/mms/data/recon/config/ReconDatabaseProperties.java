@@ -52,6 +52,18 @@ public class ReconDatabaseProperties {
         return SqlIdentifiers.qualifyTable(resolvedSchema(), tables.getRecord());
     }
 
+    public String qualifiedDatasourceTable() {
+        return SqlIdentifiers.qualifyTable(resolvedSchema(), tables.getDatasource());
+    }
+
+    public String qualifiedDomainTable() {
+        return SqlIdentifiers.qualifyTable(resolvedSchema(), tables.getDomain());
+    }
+
+    public String qualifiedProfileTable() {
+        return SqlIdentifiers.qualifyTable(resolvedSchema(), tables.getProfile());
+    }
+
     public String resolvedSchema() {
         return schema == null || schema.isBlank() ? "public" : schema;
     }
@@ -59,11 +71,29 @@ public class ReconDatabaseProperties {
     public static class Tables {
         private String run = "rec_run";
         private String record = "rec_record";
+        private String datasource = "rec_datasource";
+        private String domain = "rec_domain";
+        private String profile = "rec_profile";
 
         public String getRun() { return run; }
         public void setRun(String run) { this.run = SqlIdentifiers.require("tables.run", run); }
 
         public String getRecord() { return record; }
         public void setRecord(String record) { this.record = SqlIdentifiers.require("tables.record", record); }
+
+        public String getDatasource() { return datasource; }
+        public void setDatasource(String datasource) {
+            this.datasource = SqlIdentifiers.require("tables.datasource", datasource);
+        }
+
+        public String getDomain() { return domain; }
+        public void setDomain(String domain) {
+            this.domain = SqlIdentifiers.require("tables.domain", domain);
+        }
+
+        public String getProfile() { return profile; }
+        public void setProfile(String profile) {
+            this.profile = SqlIdentifiers.require("tables.profile", profile);
+        }
     }
 }

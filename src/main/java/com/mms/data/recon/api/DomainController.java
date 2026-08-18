@@ -138,12 +138,19 @@ public class DomainController {
     }
 
     private DomainApiModel domain(DomainConfiguration domain) {
+        var audit = domain.getAudit();
         return new DomainApiModel(
                 domain.getId(),
                 domain.getSchedule(),
                 domain.getHashingStrategy() == null ? null : domain.getHashingStrategy().name(),
                 domain.getTags() == null ? List.of() : domain.getTags(),
-                domain.getProfiles().values().stream().map(this::profile).toList()
+                domain.getProfiles().values().stream().map(this::profile).toList(),
+                audit == null ? null : audit.createdAt(),
+                audit == null ? null : audit.createdBy(),
+                audit == null ? null : audit.updatedAt(),
+                audit == null ? null : audit.updatedBy(),
+                audit == null || audit.active(),
+                audit == null ? 1 : audit.version()
         );
     }
 
@@ -151,6 +158,7 @@ public class DomainController {
         var key = profile.getMigrationKey() != null
                 ? profile.getMigrationKey()
                 : profile.getSource() == null ? null : profile.getSource().getMigrationKey();
+        var audit = profile.getAudit();
         return new ProfileApiModel(
                 profile.getDomainId(),
                 profile.getProfileId(),
@@ -165,7 +173,13 @@ public class DomainController {
                 profile.getSchedule(),
                 profile.resolvedRecon().resolvedMode().name(),
                 profile.resolvedRecon().resolvedConditionFields(),
-                profile.getTags() == null ? List.of() : profile.getTags()
+                profile.getTags() == null ? List.of() : profile.getTags(),
+                audit == null ? null : audit.createdAt(),
+                audit == null ? null : audit.createdBy(),
+                audit == null ? null : audit.updatedAt(),
+                audit == null ? null : audit.updatedBy(),
+                audit == null || audit.active(),
+                audit == null ? 1 : audit.version()
         );
     }
 }

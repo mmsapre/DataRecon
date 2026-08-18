@@ -1,5 +1,6 @@
 package com.mms.data.recon.recrun;
 
+import com.mms.data.recon.config.RecConfiguration;
 import com.mms.data.recon.config.ReconDatabaseProperties;
 import com.mms.data.recon.dataset.DatasetConfiguration;
 import com.mms.data.recon.dataset.ReconMode;
@@ -19,15 +20,20 @@ public class RecRunRepository {
 
     private final DataSource dataSource;
     private final String runTable;
+    private final String createdBy;
 
     public RecRunRepository(DataSource dataSource) {
-        this(dataSource, new ReconDatabaseProperties());
+        this(dataSource, new ReconDatabaseProperties(), null);
     }
 
     @Autowired
-    public RecRunRepository(DataSource dataSource, ReconDatabaseProperties database) {
+    public RecRunRepository(
+            DataSource dataSource,
+            ReconDatabaseProperties database,
+            RecConfiguration configuration) {
         this.dataSource = dataSource;
         this.runTable = database.qualifiedRunTable();
+        this.createdBy = configuration == null ? "data-recon" : configuration.getActor();
     }
 
     public long create(String datasetId) {
@@ -114,8 +120,9 @@ public class RecRunRepository {
                 : DatasetConfiguration.qualifiedId(domainId, profileId);
         String sql = """
                 INSERT INTO %s(dataset_id, domain_id, profile_id, domain_run_id, status, started_at, active,
-                               recon_mode, source_query, target_query, condition_fields, run_scope, baseline_run_id)
-                VALUES (?, ?, ?, ?, 'RUNNING', now(), false, ?, ?, ?, ?, ?, ?)
+                               recon_mode, source_query, target_query, condition_fields, run_scope, baseline_run_id,
+                               created_at, created_by)
+                VALUES (?, ?, ?, ?, 'RUNNING', now(), false, ?, ?, ?, ?, ?, ?, now(), ?)
                 RETURNING id
                 """.formatted(runTable);
 
@@ -139,6 +146,7 @@ public class RecRunRepository {
             } else {
                 ps.setLong(10, baselineRunId);
             }
+            ps.setString(11, createdBy);
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
                 return rs.getLong(1);
