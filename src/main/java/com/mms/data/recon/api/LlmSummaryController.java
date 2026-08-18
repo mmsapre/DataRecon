@@ -1,17 +1,23 @@
 package com.mms.data.recon.api;
 
-import io.micronaut.core.annotation.Nullable;
-import io.micronaut.http.HttpResponse;
-import io.micronaut.http.annotation.*;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import com.mms.data.recon.config.LlmProperties;
 import com.mms.data.recon.llm.LlmSummaryService;
 import com.mms.data.recon.recrun.RecRunService;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
 @Tag(name = "LLM summaries")
-@Controller("/api")
+@RestController
+@RequestMapping("/api")
 public class LlmSummaryController {
 
     private final LlmSummaryService summaries;
@@ -22,59 +28,59 @@ public class LlmSummaryController {
         this.runs = runs;
     }
 
-    @Get("/runs/{runId}/summary")
-    public HttpResponse<?> summarizeRunGet(@PathVariable long runId) {
+    @GetMapping("/runs/{runId}/summary")
+    public ResponseEntity<?> summarizeRunGet(@PathVariable long runId) {
         return summarizeRun(runId, null);
     }
 
-    @Post("/runs/{runId}/summary")
-    public HttpResponse<?> summarizeRunPost(
+    @PostMapping("/runs/{runId}/summary")
+    public ResponseEntity<?> summarizeRunPost(
             @PathVariable long runId,
-            @Nullable @Body LlmSummaryRequest request) {
+            @Nullable @RequestBody LlmSummaryRequest request) {
         return summarizeRun(runId, request);
     }
 
-    @Get("/domains/{domainId}/runs/{domainRunId}/summary")
-    public HttpResponse<?> summarizeDomainGet(
+    @GetMapping("/domains/{domainId}/runs/{domainRunId}/summary")
+    public ResponseEntity<?> summarizeDomainGet(
             @PathVariable String domainId,
             @PathVariable long domainRunId) {
         return summarizeDomain(domainId, domainRunId, null);
     }
 
-    @Post("/domains/{domainId}/runs/{domainRunId}/summary")
-    public HttpResponse<?> summarizeDomainPost(
+    @PostMapping("/domains/{domainId}/runs/{domainRunId}/summary")
+    public ResponseEntity<?> summarizeDomainPost(
             @PathVariable String domainId,
             @PathVariable long domainRunId,
-            @Nullable @Body LlmSummaryRequest request) {
+            @Nullable @RequestBody LlmSummaryRequest request) {
         return summarizeDomain(domainId, domainRunId, request);
     }
 
-    private HttpResponse<?> summarizeRun(long runId, LlmSummaryRequest request) {
+    private ResponseEntity<?> summarizeRun(long runId, LlmSummaryRequest request) {
         try {
             LlmSummaryService.Summary summary = summaries.summarizeRun(runId, from(request));
-            return HttpResponse.ok(new LlmSummaryApiModel(summary.runId(), summary.model(), summary.text()));
+            return ResponseEntity.ok(new LlmSummaryApiModel(summary.runId(), summary.model(), summary.text()));
         } catch (IllegalArgumentException e) {
-            return HttpResponse.badRequest(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (IllegalStateException e) {
             if (notConfigured(e)) {
-                return HttpResponse.badRequest(Map.of("error", e.getMessage()));
+                return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
             }
-            return HttpResponse.serverError(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
-    private HttpResponse<?> summarizeDomain(String domainId, long domainRunId, LlmSummaryRequest request) {
+    private ResponseEntity<?> summarizeDomain(String domainId, long domainRunId, LlmSummaryRequest request) {
         try {
             runs.domainRun(domainId, domainRunId);
             LlmSummaryService.Summary summary = summaries.summarizeDomainRun(domainRunId, from(request));
-            return HttpResponse.ok(new LlmSummaryApiModel(summary.runId(), summary.model(), summary.text()));
+            return ResponseEntity.ok(new LlmSummaryApiModel(summary.runId(), summary.model(), summary.text()));
         } catch (IllegalArgumentException e) {
-            return HttpResponse.badRequest(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (IllegalStateException e) {
             if (notConfigured(e)) {
-                return HttpResponse.badRequest(Map.of("error", e.getMessage()));
+                return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
             }
-            return HttpResponse.serverError(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 

@@ -1,9 +1,9 @@
 package com.mms.data.recon.config;
 
 import com.mms.data.recon.dataset.DatasourceType;
-import io.micronaut.context.exceptions.ConfigurationException;
 import jakarta.annotation.Nullable;
-import jakarta.inject.Singleton;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,10 +11,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-@Singleton
+@Component
 public class DatasourceCatalog {
 
     private final Map<String, DatasourceType> types;
+
+    @Autowired
+    public DatasourceCatalog(
+            PostgresDatasourcesProperties postgres,
+            MongoDatasourcesProperties mongo,
+            BigQueryDatasourcesProperties bigquery,
+            FileDatasourcesProperties files) {
+        this(postgres.asList(), mongo.asList(), bigquery.asList(), files.asList());
+    }
 
     public DatasourceCatalog(
             @Nullable List<PostgresDatasourceProperties> postgres,

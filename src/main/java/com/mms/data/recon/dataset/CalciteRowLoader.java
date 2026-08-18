@@ -2,20 +2,20 @@ package com.mms.data.recon.dataset;
 
 import com.mms.data.recon.config.CalciteBigQueryCatalog;
 import com.mms.data.recon.config.CalciteFileCatalog;
+import com.mms.data.recon.config.ConfigurationException;
 import com.mms.data.recon.config.DatasourceCatalog;
-import io.micronaut.context.exceptions.ConfigurationException;
-import jakarta.inject.Singleton;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-@Singleton
+@Component
 public class CalciteRowLoader {
 
     private final CalciteBigQueryCatalog bigQuery;
@@ -36,7 +36,8 @@ public class CalciteRowLoader {
         String ref = definition.getDatasourceRef();
         try {
             Connection connection = connection(type, ref);
-            return Flux.fromIterable(query(connection, definition.resolveQueryStatement(type)));
+            String sql = definition.resolveQueryStatement(type);
+            return Flux.fromIterable(query(connection, sql, PreparedQueries.params(definition)));
         } catch (RuntimeException e) {
             return Flux.error(e);
         }
@@ -63,21 +64,33 @@ public class CalciteRowLoader {
     }
 
     static List<DataLoadDefinition.RawRow> query(Connection connection, String sql) {
-        try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(sql)) {
-            ResultSetMetaData metadata = resultSet.getMetaData();
-            int columnCount = metadata.getColumnCount();
-            List<DataLoadDefinition.RawRow> rows = new ArrayList<>();
-            while (resultSet.next()) {
-                List<String> columns = new ArrayList<>(columnCount);
-                List<Object> values = new ArrayList<>(columnCount);
-                for (int i = 1; i <= columnCount; i++) {
-                    columns.add(metadata.getColumnLabel(i));
-                    values.add(resultSet.getObject(i));
-                }
-                rows.add(new DataLoadDefinition.RawRow(columns, values));
+        return query(connection, sql, List.of());
+    }
+
+    static List<DataLoadDefinition.RawRow> query(Connection connection, String sql, List<Object> params) {
+        List<Object> values = params == null ? List.of() : params;
+        int placeholders = PreparedQueries.countSqlPlaceholders(sql);
+        PreparedQueries.requireParamCount("Calcite/BigQuery query", placeholders, values);
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            for (int i = 0; i < values.size(); i++) {
+                statement.setObject(i + 1, values.get(i));
             }
-            return rows;
+            try (ResultSet resultSet = statement.executeQuery()) {
+                ResultSetMetaData metadata = resultSet.getMetaData();
+                int columnCount = metadata.getColumnCount();
+                List<DataLoadDefinition.RawRow> rows = new ArrayList<>();
+                while (resultSet.next()) {
+                    List<String> columns = new ArrayList<>(columnCount);
+                    List<Object> rowValues = new ArrayList<>(columnCount);
+                    for (int i = 1; i <= columnCount; i++) {
+                        columns.add(metadata.getColumnLabel(i));
+                        rowValues.add(resultSet.getObject(i));
+                    }
+                    rows.add(new DataLoadDefinition.RawRow(columns, rowValues));
+                }
+                return rows;
+            }
         } catch (SQLException e) {
             throw new IllegalStateException("Calcite query failed: " + sql, e);
         }

@@ -1,10 +1,10 @@
 package com.mms.data.recon.dataset;
 
-import io.micronaut.context.event.ApplicationEventListener;
-import io.micronaut.runtime.server.event.ServerStartupEvent;
-import jakarta.inject.Singleton;
 import com.mms.data.recon.config.RecConfiguration;
 import com.mms.data.recon.recrun.RecRunService;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,8 +14,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-@Singleton
-public class DatasetRecScheduler implements ApplicationEventListener<ServerStartupEvent> {
+@Component
+public class DatasetRecScheduler {
 
     private final RecConfiguration configuration;
     private final RecRunService runService;
@@ -27,8 +27,8 @@ public class DatasetRecScheduler implements ApplicationEventListener<ServerStart
         this.runService = runService;
     }
 
-    @Override
-    public void onApplicationEvent(ServerStartupEvent event) {
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationReady() {
         // Schedule values like "60s", "5m", "1h". Domain schedule runs all profiles;
         // profile schedule runs that pairing only. Manual API trigger always works.
         configuration.getDomains().values().forEach(this::syncDomain);

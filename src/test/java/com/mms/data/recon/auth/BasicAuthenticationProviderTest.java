@@ -1,11 +1,10 @@
 package com.mms.data.recon.auth;
 
-import io.micronaut.security.authentication.AuthenticationResponse;
-import io.micronaut.security.authentication.UsernamePasswordCredentials;
 import org.junit.jupiter.api.Test;
-import reactor.core.publisher.Mono;
+import org.springframework.security.core.userdetails.ReactiveUserDetailsService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BasicAuthenticationProviderTest {
@@ -15,15 +14,12 @@ class BasicAuthenticationProviderTest {
         AuthConfiguration configuration = new AuthConfiguration();
         configuration.setUsername("admin");
         configuration.setPassword("secret");
-        BasicAuthenticationProvider provider = new BasicAuthenticationProvider(configuration);
+        ReactiveUserDetailsService users = new SecurityConfiguration().userDetailsService(configuration);
 
-        AuthenticationResponse response = Mono.from(provider.authenticate(
-                null,
-                new UsernamePasswordCredentials("admin", "secret")
-        )).block();
-
-        assertTrue(response.isAuthenticated());
-        assertEquals("admin", response.getAuthentication().orElseThrow().getName());
+        var user = users.findByUsername("admin").block();
+        assertNotNull(user);
+        assertEquals("admin", user.getUsername());
+        assertEquals("secret", user.getPassword());
     }
 
     @Test
@@ -31,27 +27,18 @@ class BasicAuthenticationProviderTest {
         AuthConfiguration configuration = new AuthConfiguration();
         configuration.setUsername("admin");
         configuration.setPassword("secret");
-        BasicAuthenticationProvider provider = new BasicAuthenticationProvider(configuration);
+        ReactiveUserDetailsService users = new SecurityConfiguration().userDetailsService(configuration);
 
-        AuthenticationResponse response = Mono.from(provider.authenticate(
-                null,
-                new UsernamePasswordCredentials("unknown", "secret")
-        )).block();
-
-        assertTrue(!response.isAuthenticated());
+        assertEquals(null, users.findByUsername("unknown").block());
     }
 
     @Test
     void allowsAnonymousWhenAuthDisabled() {
-        BasicAuthenticationProvider provider = new BasicAuthenticationProvider(new AuthConfiguration());
+        ReactiveUserDetailsService users = new SecurityConfiguration().userDetailsService(new AuthConfiguration());
 
-        AuthenticationResponse response = Mono.from(provider.authenticate(
-                null,
-                new UsernamePasswordCredentials("anyone", "x")
-        )).block();
-
-        assertTrue(response.isAuthenticated());
-        assertEquals("anonymous", response.getAuthentication().orElseThrow().getName());
+        var user = users.findByUsername("anonymous").block();
+        assertNotNull(user);
+        assertEquals("anonymous", user.getUsername());
     }
 
     @Test

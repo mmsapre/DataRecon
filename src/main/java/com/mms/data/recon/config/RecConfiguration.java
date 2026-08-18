@@ -1,6 +1,6 @@
 package com.mms.data.recon.config;
 
-import io.micronaut.context.annotation.ConfigurationProperties;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import com.mms.data.recon.dataset.DatasetConfiguration;
 import com.mms.data.recon.dataset.DomainConfiguration;
 import com.mms.data.recon.dataset.HashingStrategy;

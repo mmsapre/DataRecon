@@ -3,7 +3,7 @@ package com.mms.data.recon.llm;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mms.data.recon.config.LlmProperties;
-import jakarta.inject.Singleton;
+import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -12,7 +12,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
-@Singleton
+@Component
 public class OpenAiCompatibleLlmClient {
 
     private final ObjectMapper mapper = new ObjectMapper();

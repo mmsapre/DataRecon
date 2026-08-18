@@ -1,10 +1,6 @@
 package com.mms.data.recon.api;
 
-import io.micronaut.context.exceptions.ConfigurationException;
-import io.micronaut.http.HttpStatus;
-import io.micronaut.http.exceptions.HttpStatusException;
-import jakarta.annotation.Nullable;
-import jakarta.inject.Singleton;
+import com.mms.data.recon.config.ConfigurationException;
 import com.mms.data.recon.config.DatasourceCatalog;
 import com.mms.data.recon.config.RecConfiguration;
 import com.mms.data.recon.dataset.DataLoadDefinition;
@@ -13,8 +9,12 @@ import com.mms.data.recon.dataset.DatasetRecScheduler;
 import com.mms.data.recon.dataset.DomainConfiguration;
 import com.mms.data.recon.dataset.ProfileDatasources;
 import com.mms.data.recon.dataset.ReconSettings;
+import jakarta.annotation.Nullable;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
-@Singleton
+@Component
 public class RecCatalogService {
 
     private final RecConfiguration configuration;
@@ -310,22 +310,22 @@ public class RecCatalogService {
         return value == null || value.isBlank();
     }
 
-    private static HttpStatusException wrap(RuntimeException e) {
-        if (e instanceof HttpStatusException status) {
+    private static ResponseStatusException wrap(RuntimeException e) {
+        if (e instanceof ResponseStatusException status) {
             return status;
         }
         String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
         if (e instanceof IllegalArgumentException && message.startsWith("Unknown")) {
-            return new HttpStatusException(HttpStatus.NOT_FOUND, message);
+            return new ResponseStatusException(HttpStatus.NOT_FOUND, message);
         }
-        return new HttpStatusException(HttpStatus.BAD_REQUEST, message);
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
     }
 
-    private static HttpStatusException conflict(String message) {
-        return new HttpStatusException(HttpStatus.CONFLICT, message);
+    private static ResponseStatusException conflict(String message) {
+        return new ResponseStatusException(HttpStatus.CONFLICT, message);
     }
 
-    private static HttpStatusException badRequest(String message) {
-        return new HttpStatusException(HttpStatus.BAD_REQUEST, message);
+    private static ResponseStatusException badRequest(String message) {
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
     }
 }

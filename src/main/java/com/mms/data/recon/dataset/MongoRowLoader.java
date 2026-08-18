@@ -1,19 +1,19 @@
 package com.mms.data.recon.dataset;
 
+import com.mms.data.recon.config.ConfigurationException;
 import com.mms.data.recon.config.MongoClientCatalog;
 import com.mongodb.client.model.Projections;
 import com.mongodb.reactivestreams.client.FindPublisher;
 import com.mongodb.reactivestreams.client.MongoCollection;
-import io.micronaut.context.exceptions.ConfigurationException;
-import jakarta.inject.Singleton;
 import org.bson.Document;
 import org.bson.conversions.Bson;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@Singleton
+@Component
 public class MongoRowLoader {
 
     private final MongoClientCatalog catalog;
@@ -37,7 +37,10 @@ public class MongoRowLoader {
         MongoCollection<Document> collection = catalog.database(definition.getDatasourceRef())
                 .getCollection(definition.getCollection());
 
-        Bson filter = parseFilter(definition.resolveQueryStatement(DatasourceType.mongo));
+        Bson filter = parseFilter(
+                definition.resolveQueryStatement(DatasourceType.mongo),
+                PreparedQueries.params(definition)
+        );
         List<String> projected = projectionFields(definition);
         FindPublisher<Document> find = collection.find(filter)
                 .projection(Projections.include(projected))
@@ -51,8 +54,8 @@ public class MongoRowLoader {
                 ));
     }
 
-    private static Bson parseFilter(String query) {
-        String json = query == null || query.isBlank() ? "{}" : query.trim();
+    private static Bson parseFilter(String query, List<Object> params) {
+        String json = PreparedQueries.bindMongoFilter(query, params);
         try {
             return Document.parse(json);
         } catch (Exception e) {

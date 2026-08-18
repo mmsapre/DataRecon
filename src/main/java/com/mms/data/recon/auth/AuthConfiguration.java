@@ -1,6 +1,6 @@
 package com.mms.data.recon.auth;
 
-import io.micronaut.context.annotation.ConfigurationProperties;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import com.mms.data.recon.config.MmsRecon;
 
 @ConfigurationProperties(MmsRecon.PREFIX + ".auth")
@@ -18,3 +18,4 @@ public class AuthConfiguration {
         return username != null && !username.isBlank();
     }
 }
+

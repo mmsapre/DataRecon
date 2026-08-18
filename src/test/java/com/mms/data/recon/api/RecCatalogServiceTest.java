@@ -1,7 +1,7 @@
 package com.mms.data.recon.api;
 
-import io.micronaut.http.HttpStatus;
-import io.micronaut.http.exceptions.HttpStatusException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import com.mms.data.recon.config.BigQueryDatasourceProperties;
 import com.mms.data.recon.config.DatasourceCatalog;
 import com.mms.data.recon.config.FileDatasourceProperties;
@@ -85,19 +85,19 @@ class RecCatalogServiceTest {
         request.setId("party");
         catalog.createDomain(request);
 
-        HttpStatusException duplicate = assertThrows(HttpStatusException.class, () -> catalog.createDomain(request));
-        assertEquals(HttpStatus.CONFLICT, duplicate.getStatus());
+        ResponseStatusException duplicate = assertThrows(ResponseStatusException.class, () -> catalog.createDomain(request));
+        assertEquals(HttpStatus.CONFLICT, duplicate.getStatusCode());
 
         ProfileUpsertRequest profile = new ProfileUpsertRequest();
         profile.setId("pg-pg");
         SideRequest source = new SideRequest();
         source.setDatasource("missing");
         profile.setSource(source);
-        HttpStatusException unknown = assertThrows(
-                HttpStatusException.class,
+        ResponseStatusException unknown = assertThrows(
+                ResponseStatusException.class,
                 () -> catalog.createProfile("party", profile)
         );
-        assertEquals(HttpStatus.BAD_REQUEST, unknown.getStatus());
+        assertEquals(HttpStatus.BAD_REQUEST, unknown.getStatusCode());
         assertTrue(unknown.getMessage().contains("Unknown datasourceRef"));
     }
 
@@ -106,20 +106,20 @@ class RecCatalogServiceTest {
         RecCatalogService catalog = catalog();
         DomainUpsertRequest update = new DomainUpsertRequest();
         update.setSchedule("60s");
-        HttpStatusException missingDomain = assertThrows(
-                HttpStatusException.class,
+        ResponseStatusException missingDomain = assertThrows(
+                ResponseStatusException.class,
                 () -> catalog.updateDomain("party", update)
         );
-        assertEquals(HttpStatus.NOT_FOUND, missingDomain.getStatus());
+        assertEquals(HttpStatus.NOT_FOUND, missingDomain.getStatusCode());
 
         DomainUpsertRequest create = new DomainUpsertRequest();
         create.setId("party");
         catalog.createDomain(create);
-        HttpStatusException missingProfile = assertThrows(
-                HttpStatusException.class,
+        ResponseStatusException missingProfile = assertThrows(
+                ResponseStatusException.class,
                 () -> catalog.updateSource("party", "pg-pg", new SideRequest())
         );
-        assertEquals(HttpStatus.NOT_FOUND, missingProfile.getStatus());
+        assertEquals(HttpStatus.NOT_FOUND, missingProfile.getStatusCode());
     }
 
     @Test

@@ -1,6 +1,6 @@
 package com.mms.data.recon.config;
 
-import io.micronaut.context.exceptions.ConfigurationException;
+import com.mms.data.recon.config.ConfigurationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

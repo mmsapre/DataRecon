@@ -1,18 +1,18 @@
 package com.mms.data.recon.recrun;
 
-import jakarta.inject.Singleton;
 import com.mms.data.recon.config.RecConfiguration;
 import com.mms.data.recon.dataset.DatasetRecService;
 import com.mms.data.recon.dataset.DomainConfiguration;
 import com.mms.data.recon.dataset.ReconSettings;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-@Singleton
+@Component
 public class RecRunService {
 
     private final RecConfiguration configuration;

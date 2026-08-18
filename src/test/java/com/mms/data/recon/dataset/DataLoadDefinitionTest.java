@@ -1,7 +1,7 @@
 package com.mms.data.recon.dataset;
 
 import com.mms.data.recon.config.DatasourceCatalog;
-import io.micronaut.context.exceptions.ConfigurationException;
+import com.mms.data.recon.config.ConfigurationException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

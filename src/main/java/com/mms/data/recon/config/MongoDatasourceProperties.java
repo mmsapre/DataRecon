@@ -1,24 +1,26 @@
 package com.mms.data.recon.config;
 
-import io.micronaut.context.annotation.EachProperty;
-import io.micronaut.context.annotation.Parameter;
-
-@EachProperty(MmsRecon.PREFIX + ".mongodb.datasources")
 public class MongoDatasourceProperties {
 
-    private final String name;
+    private String name;
     private String uri = "mongodb://localhost:27017";
     private String database = "data";
     private String username;
     private String password;
     private String authDatabase = "admin";
 
-    public MongoDatasourceProperties(@Parameter String name) {
+    public MongoDatasourceProperties() {}
+
+    public MongoDatasourceProperties(String name) {
         this.name = name;
     }
 
     public String getName() {
         return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getUri() {

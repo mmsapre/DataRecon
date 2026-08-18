@@ -9,6 +9,7 @@ import java.util.List;
  * Source or target side of a profile. Datasource is a catalog name
  * ({@code landing}, {@code csv}, …), not a new connection definition.
  * Optional {@code query} is PostgreSQL/BigQuery SQL or a Mongo JSON filter.
+ * Optional {@code queryParams} binds positional {@code ?} placeholders.
  */
 public class SideRequest {
 
@@ -19,6 +20,7 @@ public class SideRequest {
     private String collection;
     private List<String> fields;
     private String query;
+    private List<Object> queryParams;
 
     public void applyTo(DataLoadDefinition side) {
         if (datasource != null) {
@@ -41,6 +43,9 @@ public class SideRequest {
         }
         if (query != null) {
             side.setQuery(query);
+        }
+        if (queryParams != null) {
+            side.setQueryParams(queryParams);
         }
     }
 
@@ -70,4 +75,7 @@ public class SideRequest {
 
     public String getQuery() { return query; }
     public void setQuery(String query) { this.query = query; }
+
+    public List<Object> getQueryParams() { return queryParams; }
+    public void setQueryParams(List<Object> queryParams) { this.queryParams = queryParams; }
 }

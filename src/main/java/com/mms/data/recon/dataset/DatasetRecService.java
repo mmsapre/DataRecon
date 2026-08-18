@@ -1,16 +1,16 @@
 package com.mms.data.recon.dataset;
 
-import jakarta.inject.Singleton;
 import com.mms.data.recon.recrun.FieldDiffs;
 import com.mms.data.recon.recrun.RecRecordRepository;
 import com.mms.data.recon.recrun.RecRunRepository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
-@Singleton
+@Component
 public class DatasetRecService {
 
     private final RowLoader rowLoader;

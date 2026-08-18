@@ -1,10 +1,10 @@
 package com.mms.data.recon.dataset;
 
 import com.mms.data.recon.config.DatasourceCatalog;
-import jakarta.inject.Singleton;
 import reactor.core.publisher.Flux;
+import org.springframework.stereotype.Component;
 
-@Singleton
+@Component
 public class DatasetRowLoader implements RowLoader {
 
     private final PostgresRowLoader postgresRowLoader;

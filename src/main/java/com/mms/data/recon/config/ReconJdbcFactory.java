@@ -2,20 +2,18 @@ package com.mms.data.recon.config;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import io.micronaut.context.annotation.Bean;
-import io.micronaut.context.annotation.Factory;
-import io.micronaut.context.annotation.Primary;
-import jakarta.inject.Named;
-import jakarta.inject.Singleton;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
-@Factory
+import javax.sql.DataSource;
+
+@Configuration
 public class ReconJdbcFactory {
 
-    @Singleton
+    @Bean(destroyMethod = "close")
     @Primary
-    @Named("default")
-    @Bean(preDestroy = "close")
-    HikariDataSource reconResultDataSource(ReconDatabaseProperties database) {
+    public DataSource dataSource(ReconDatabaseProperties database) {
         HikariConfig config = new HikariConfig();
         config.setPoolName("mms-recon-results");
         config.setJdbcUrl(database.jdbcUrl());

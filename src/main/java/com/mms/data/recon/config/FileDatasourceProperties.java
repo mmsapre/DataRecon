@@ -1,9 +1,5 @@
 package com.mms.data.recon.config;
 
-import io.micronaut.context.annotation.EachProperty;
-import io.micronaut.context.annotation.Parameter;
-import io.micronaut.context.exceptions.ConfigurationException;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,10 +9,9 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 
-@EachProperty(MmsRecon.PREFIX + ".file.datasources")
 public class FileDatasourceProperties {
 
-    private final String name;
+    private String name;
     private String path;
     private String pattern;
     private String format;
@@ -26,11 +21,14 @@ public class FileDatasourceProperties {
     private boolean header = true;
     private String calciteSchema = "files";
 
-    public FileDatasourceProperties(@Parameter String name) {
+    public FileDatasourceProperties() {}
+
+    public FileDatasourceProperties(String name) {
         this.name = name;
     }
 
     public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
     public String getPath() { return path; }
     public void setPath(String path) { this.path = path; }

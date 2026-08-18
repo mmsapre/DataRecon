@@ -3,12 +3,12 @@ package com.mms.data.recon.llm;
 import com.mms.data.recon.config.LlmProperties;
 import com.mms.data.recon.recrun.RecRecordRepository;
 import com.mms.data.recon.recrun.RecRunRepository;
-import jakarta.inject.Singleton;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Singleton
+@Component
 public class LlmSummaryService {
 
     private final LlmProperties properties;

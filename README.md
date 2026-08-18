@@ -1,9 +1,9 @@
 # Data Recon
 
-A Java 17 / Maven / Micronaut service that reconciles source and target datasets:
+A Java 17 / Maven / Spring Boot service that reconciles source and target datasets:
 
 - Java 17
-- Micronaut
+- Spring Boot 3.4
 - PostgreSQL source and optional PostgreSQL target via named R2DBC datasources
 - MongoDB source or target via named Mongo datasources
 - BigQuery source or target through Apache Calcite only (JDBC adapter + BigQuery dialect)
@@ -13,7 +13,7 @@ A Java 17 / Maven / Micronaut service that reconciles source and target datasets
 - TypeStrict / TypeLenient hashing
 - Flyway schema
 - Basic authentication
-- REST APIs and Swagger UI (`/swagger-ui`)
+- REST APIs and Swagger UI (`/swagger-ui.html`)
 - Domain and profile scheduling
 - Inline or file-based SQL / Mongo JSON filters
 - Optional LLM summaries of run results (OpenAI-compatible API; requires URL and API key)
@@ -233,12 +233,14 @@ mms.recon.domains.party.profiles.pg-mongo.target.query={}
 When table/column mapping is not enough (joins, filters, expressions), set **`query`** on
 source and/or target. It is optional; when present it wins over generated SQL from
 `schema` / `table` / `fields`. Or set `queryFile` to a `.sql` / `.json` path.
+Use **`queryParams`** with positional `?` placeholders — values are bound (prepared
+statements for PostgreSQL / BigQuery; safe JSON binding for Mongo), not concatenated.
 
-| Type | `query` |
-|---|---|
-| PostgreSQL | SQL. Must alias the key as `"MigrationKey"`, then comparable columns in `fields` order |
-| BigQuery | SQL. Alias as `MigrationKey` (Calcite). Same column contract |
-| MongoDB | JSON filter document. Still set `collection` and `fields`. `{}` is all documents |
+| Type | `query` | `queryParams` |
+|---|---|---|
+| PostgreSQL | SQL. Must alias the key as `"MigrationKey"`, then comparable columns in `fields` order | Bound to `?` via R2DBC |
+| BigQuery | SQL. Alias as `MigrationKey` (Calcite). Same column contract | Bound to `?` via JDBC `PreparedStatement` |
+| MongoDB | JSON filter. Still set `collection` and `fields`. `{}` is all documents | Replaces `"?"` / `?` placeholders |
 
 ```yaml
 # config/combinations/party-query.yml
@@ -246,13 +248,15 @@ source:
   query: >
     SELECT party_id AS "MigrationKey", party_name, country_code, status
     FROM landing.party
-    WHERE status = 'ACTIVE'
+    WHERE status = ?
+  queryParams: [ACTIVE]
   fields: [party_name, country_code, status]
 target:
   query: >
     SELECT party_id AS "MigrationKey", party_name, country_code, status
     FROM master.party
-    WHERE status = 'ACTIVE'
+    WHERE status = ?
+  queryParams: [ACTIVE]
   fields: [party_name, country_code, status]
 ```
 
@@ -260,7 +264,8 @@ target:
 target:
   collection: party
   fields: [party_name, country_code, status]
-  query: '{ "status": "ACTIVE" }'
+  query: '{ "status": "?" }'
+  queryParams: [ACTIVE]
 ```
 
 ```yaml
@@ -268,7 +273,8 @@ target:
   query: >
     SELECT party_id AS MigrationKey, party_name, country_code, status
     FROM party
-    WHERE status = 'ACTIVE'
+    WHERE status = ?
+  queryParams: [ACTIVE]
   fields: [party_name, country_code, status]
 ```
 
@@ -321,23 +327,23 @@ export DATA_RECON_USER=admin
 export DATA_RECON_PASSWORD=admin
 
 mvn clean package
-mvn mn:run
+mvn spring-boot:run
 ```
 
 Load extra files (comma-separated). Maps merge:
 
 ```bash
-mvn mn:run -Dmicronaut.config.files=config/combinations/party-pg-mongo.yml
+mvn spring-boot:run -Dspring.config.additional-location=file:config/combinations/party-pg-mongo.yml
 
-mvn mn:run -Dmicronaut.config.files=config/combinations/party-pg-mongo.properties
+mvn spring-boot:run -Dspring.config.additional-location=file:config/combinations/party-pg-mongo.properties
 
-mvn mn:run "-Dmicronaut.config.files=config/database.yml,config/datasources.yml,config/combinations/party-pg-pg.yml"
+mvn spring-boot:run "-Dspring.config.additional-location=file:config/database.yml,file:config/datasources.yml,file:config/combinations/party-pg-pg.yml"
 ```
 
 Jar:
 
 ```bash
-java -Dmicronaut.config.files=config/combinations/party-pg-pg.yml -jar target/data-recon-1.0.0-SNAPSHOT.jar
+java -Dspring.config.additional-location=file:config/combinations/party-pg-pg.yml -jar target/data-recon-1.0.0-SNAPSHOT.jar
 ```
 
 Runtime defaults also live in `src/main/resources/application.yml`. After start, Flyway
@@ -388,8 +394,8 @@ POST /api/domains/{domainId}/runs/{domainRunId}/summary
 Swagger UI (no login) and OpenAPI YAML:
 
 ```text
-http://localhost:8080/swagger-ui/index.html
-http://localhost:8080/swagger/data-recon-1.0.0.yml
+http://localhost:8080/swagger-ui.html
+http://localhost:8080/v3/api-docs
 ```
 
 Use **Authorize** in Swagger UI with basic auth (`DATA_RECON_USER` / `DATA_RECON_PASSWORD`) before calling `/api` endpoints. Spec and UI are anonymous; APIs stay authenticated.

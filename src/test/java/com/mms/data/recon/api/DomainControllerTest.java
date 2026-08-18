@@ -11,7 +11,7 @@ import com.mms.data.recon.dataset.DomainConfiguration;
 import com.mms.data.recon.dataset.HashingStrategy;
 import com.mms.data.recon.dataset.MigrationKeySpec;
 import com.mms.data.recon.dataset.ReconMode;
-import io.micronaut.http.HttpStatus;
+import org.springframework.http.HttpStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
@@ -100,7 +100,7 @@ class DomainControllerTest {
         DomainUpsertRequest domain = new DomainUpsertRequest();
         domain.setId("account");
         domain.setSchedule("30m");
-        assertEquals("account", controller.createDomain(domain).getBody().orElseThrow().id());
+        assertEquals("account", controller.createDomain(domain).getBody().id());
         assertEquals("30m", controller.getDomain("account").schedule());
 
         ProfileUpsertRequest profile = new ProfileUpsertRequest();
@@ -117,7 +117,7 @@ class DomainControllerTest {
         target.setFields(List.of("name"));
         profile.setTarget(target);
 
-        ProfileApiModel created = controller.createProfile("account", profile).getBody().orElseThrow();
+        ProfileApiModel created = controller.createProfile("account", profile).getBody();
         assertEquals("landing", created.sourceDatasource());
         assertEquals("postgres", created.sourceType());
         assertEquals("bq", created.targetDatasource());
@@ -128,8 +128,8 @@ class DomainControllerTest {
         attach.setSource("landing");
         attach.setTarget("bq");
         assertEquals("landing", controller.attachDatasources("account", "pg-bq", attach).sourceDatasource());
-        assertEquals(HttpStatus.NO_CONTENT, controller.deleteProfile("account", "pg-bq").getStatus());
-        assertEquals(HttpStatus.NO_CONTENT, controller.deleteDomain("account").getStatus());
+        assertEquals(HttpStatus.NO_CONTENT, controller.deleteProfile("account", "pg-bq").getStatusCode());
+        assertEquals(HttpStatus.NO_CONTENT, controller.deleteDomain("account").getStatusCode());
     }
 
     private static ProfileUpsertRequest reconPolicy() {

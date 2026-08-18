@@ -1,11 +1,11 @@
 package com.mms.data.recon.recrun;
 
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 import com.mms.data.recon.config.ReconDatabaseProperties;
 import com.mms.data.recon.dataset.DatasetConfiguration;
 import com.mms.data.recon.dataset.ReconMode;
 import com.mms.data.recon.util.ThrowableUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
 import java.sql.*;
@@ -13,7 +13,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-@Singleton
+@Component
 public class RecRunRepository {
 
     private final DataSource dataSource;
@@ -23,7 +23,7 @@ public class RecRunRepository {
         this(dataSource, new ReconDatabaseProperties());
     }
 
-    @Inject
+    @Autowired
     public RecRunRepository(DataSource dataSource, ReconDatabaseProperties database) {
         this.dataSource = dataSource;
         this.runTable = database.qualifiedRunTable();

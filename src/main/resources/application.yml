@@ -1,68 +1,29 @@
-micronaut:
+spring:
   application:
     name: data-recon
-
-  server:
-    port: 8080
-    cors:
-      enabled: true
-      configurations:
-        ui:
-          allowed-origins:
-            - ${DATA_RECON_CORS_ORIGIN:http://localhost:5173}
-          allowed-methods:
-            - GET
-            - POST
-            - PUT
-            - DELETE
-            - OPTIONS
-          allowed-headers:
-            - Authorization
-            - Content-Type
-            - Accept
-          allow-credentials: true
-
-  router:
-    static-resources:
-      swagger:
-        paths: classpath:META-INF/swagger
-        mapping: /swagger/**
-      swagger-ui:
-        paths: classpath:META-INF/swagger/views/swagger-ui
-        mapping: /swagger-ui/**
-
-  security:
+  main:
+    web-application-type: reactive
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  flyway:
     enabled: true
-    authentication: basic
-    intercept-url-map:
-      - pattern: /health/**
-        access:
-          - isAnonymous()
-      - pattern: /swagger/**
-        access:
-          - isAnonymous()
-      - pattern: /swagger-ui/**
-        access:
-          - isAnonymous()
-      - pattern: /**
-        http-method: OPTIONS
-        access:
-          - isAnonymous()
-      - pattern: /**
-        access:
-          - isAuthenticated()
+    create-schemas: true
+    default-schema: ${mms.recon.database.schema:public}
+    schemas:
+      - ${mms.recon.database.schema:public}
+    placeholders:
+      runTable: ${mms.recon.database.tables.run:rec_run}
+      recordTable: ${mms.recon.database.tables.record:rec_record}
 
-flyway:
-  datasources:
-    default:
-      enabled: true
-      create-schema: true
-      default-schema: ${mms.recon.database.schema:public}
-      schemas:
-        - ${mms.recon.database.schema:public}
-      placeholders:
-        runTable: ${mms.recon.database.tables.run:rec_run}
-        recordTable: ${mms.recon.database.tables.record:rec_record}
+server:
+  port: 8080
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
 
 mms:
   recon:

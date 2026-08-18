@@ -45,7 +45,8 @@ class CalciteRowLoaderTest {
         try (Connection connection = CalciteConnections.inMemory("hr", new PartySchema())) {
             List<DataLoadDefinition.RawRow> rows = CalciteRowLoader.query(
                     connection,
-                    "SELECT MigrationKey, party_name, country_code, status FROM party"
+                    "SELECT MigrationKey, party_name, country_code, status FROM party WHERE status = ?",
+                    List.of("ACTIVE")
             );
             assertEquals(2, rows.size());
             assertEquals("P1", rows.get(0).migrationKey());

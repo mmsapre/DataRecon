@@ -1,15 +1,15 @@
 package com.mms.data.recon.recrun;
 
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 import com.mms.data.recon.config.ReconDatabaseProperties;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-@Singleton
+@Component
 public class RecRecordRepository {
 
     private final DataSource dataSource;
@@ -19,7 +19,7 @@ public class RecRecordRepository {
         this(dataSource, new ReconDatabaseProperties());
     }
 
-    @Inject
+    @Autowired
     public RecRecordRepository(DataSource dataSource, ReconDatabaseProperties database) {
         this.dataSource = dataSource;
         this.recordTable = database.qualifiedRecordTable();

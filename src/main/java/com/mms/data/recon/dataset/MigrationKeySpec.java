@@ -1,7 +1,7 @@
 package com.mms.data.recon.dataset;
 
 import com.mms.data.recon.config.SqlIdentifiers;
-import io.micronaut.context.exceptions.ConfigurationException;
+import com.mms.data.recon.config.ConfigurationException;
 
 import java.util.ArrayList;
 import java.util.List;

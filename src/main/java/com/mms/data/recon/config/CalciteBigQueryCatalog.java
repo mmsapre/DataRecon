@@ -3,10 +3,10 @@ package com.mms.data.recon.config;
 import com.mms.data.recon.dataset.CalciteConnections;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import io.micronaut.context.exceptions.ConfigurationException;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PreDestroy;
-import jakarta.inject.Singleton;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -15,12 +15,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Singleton
+@Component
 public class CalciteBigQueryCatalog {
 
     private final Map<String, BigQueryDatasourceProperties> byName;
     private final ConcurrentHashMap<String, HikariDataSource> pools = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Connection> connections = new ConcurrentHashMap<>();
+
+    @Autowired
+    public CalciteBigQueryCatalog(BigQueryDatasourcesProperties properties) {
+        this(properties.asList());
+    }
 
     public CalciteBigQueryCatalog(@Nullable List<BigQueryDatasourceProperties> properties) {
         Map<String, BigQueryDatasourceProperties> map = new LinkedHashMap<>();

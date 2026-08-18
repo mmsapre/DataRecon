@@ -1,12 +1,8 @@
 package com.mms.data.recon.config;
 
-import io.micronaut.context.annotation.EachProperty;
-import io.micronaut.context.annotation.Parameter;
-
-@EachProperty(MmsRecon.PREFIX + ".postgres.datasources")
 public class PostgresDatasourceProperties {
 
-    private final String name;
+    private String name;
     private String url;
     private String host = "localhost";
     private int port = 5432;
@@ -15,11 +11,14 @@ public class PostgresDatasourceProperties {
     private String password = "postgres";
     private int maxSize = 10;
 
-    public PostgresDatasourceProperties(@Parameter String name) {
+    public PostgresDatasourceProperties() {}
+
+    public PostgresDatasourceProperties(String name) {
         this.name = name;
     }
 
     public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
     public String getUrl() { return url; }
     public void setUrl(String url) { this.url = url; }

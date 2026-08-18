@@ -1,12 +1,8 @@
 package com.mms.data.recon.config;
 
-import io.micronaut.context.annotation.EachProperty;
-import io.micronaut.context.annotation.Parameter;
-
-@EachProperty(MmsRecon.PREFIX + ".bigquery.datasources")
 public class BigQueryDatasourceProperties {
 
-    private final String name;
+    private String name;
     private String jdbcUrl;
     private String driverClassName = "com.simba.googlebigquery.jdbc.Driver";
     private String projectId;
@@ -19,11 +15,14 @@ public class BigQueryDatasourceProperties {
     private int maxSize = 5;
     private String calciteSchema = "bq";
 
-    public BigQueryDatasourceProperties(@Parameter String name) {
+    public BigQueryDatasourceProperties() {}
+
+    public BigQueryDatasourceProperties(String name) {
         this.name = name;
     }
 
     public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
     public String getJdbcUrl() { return jdbcUrl; }
     public void setJdbcUrl(String jdbcUrl) { this.jdbcUrl = jdbcUrl; }

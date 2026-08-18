@@ -1,10 +1,10 @@
 package com.mms.data.recon.config;
 
 import com.mms.data.recon.dataset.CalciteConnections;
-import io.micronaut.context.exceptions.ConfigurationException;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PreDestroy;
-import jakarta.inject.Singleton;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -13,11 +13,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Singleton
+@Component
 public class CalciteFileCatalog {
 
     private final Map<String, FileDatasourceProperties> byName;
     private final ConcurrentHashMap<String, Connection> connections = new ConcurrentHashMap<>();
+
+    @Autowired
+    public CalciteFileCatalog(FileDatasourcesProperties properties) {
+        this(properties.asList());
+    }
 
     public CalciteFileCatalog(@Nullable List<FileDatasourceProperties> properties) {
         Map<String, FileDatasourceProperties> map = new LinkedHashMap<>();

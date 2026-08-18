@@ -8,18 +8,24 @@ import com.mongodb.reactivestreams.client.MongoClients;
 import com.mongodb.reactivestreams.client.MongoDatabase;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PreDestroy;
-import jakarta.inject.Singleton;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Singleton
+@Component
 public class MongoClientCatalog {
 
     private final Map<String, MongoDatasourceProperties> byName;
     private final ConcurrentHashMap<String, MongoClient> clients = new ConcurrentHashMap<>();
+
+    @Autowired
+    public MongoClientCatalog(MongoDatasourcesProperties properties) {
+        this(properties.asList());
+    }
 
     public MongoClientCatalog(@Nullable List<MongoDatasourceProperties> properties) {
         Map<String, MongoDatasourceProperties> map = new LinkedHashMap<>();

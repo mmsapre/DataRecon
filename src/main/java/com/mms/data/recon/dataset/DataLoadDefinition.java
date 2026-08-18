@@ -1,6 +1,6 @@
 package com.mms.data.recon.dataset;
 
-import io.micronaut.context.exceptions.ConfigurationException;
+import com.mms.data.recon.config.ConfigurationException;
 import com.mms.data.recon.config.DatasourceCatalog;
 import com.mms.data.recon.config.SqlIdentifiers;
 
@@ -18,6 +18,8 @@ import java.util.function.Function;
  * PostgreSQL and BigQuery use SQL that aliases the key as {@code MigrationKey};
  * MongoDB uses a JSON filter (still set {@code collection} and {@code fields}).
  * {@code query} wins over generated SQL. {@code queryFile} is used only when {@code query} is blank.
+ * Optional {@code queryParams} binds positional {@code ?} placeholders (SQL prepared statements;
+ * Mongo JSON {@code "?"} / {@code ?} placeholders).
  */
 public class DataLoadDefinition {
 
@@ -28,6 +30,7 @@ public class DataLoadDefinition {
     private DatasourceType type;
     private String query;
     private Path queryFile;
+    private List<Object> queryParams;
     private String collection;
     private String schema;
     private String table;
@@ -54,6 +57,11 @@ public class DataLoadDefinition {
 
     public Path getQueryFile() { return queryFile; }
     public void setQueryFile(Path queryFile) { this.queryFile = queryFile; }
+
+    public List<Object> getQueryParams() { return queryParams; }
+    public void setQueryParams(List<Object> queryParams) {
+        this.queryParams = queryParams == null ? null : new java.util.ArrayList<>(queryParams);
+    }
 
     public String getCollection() { return collection; }
     public void setCollection(String collection) { this.collection = collection; }
@@ -207,7 +215,11 @@ public class DataLoadDefinition {
         }
         DatasourceType type = resolveType((Function<String, Optional<DatasourceType>>) null);
         if (type == DatasourceType.mongo) {
-            return "{}";
+            try {
+                return resolveQueryStatement(DatasourceType.mongo);
+            } catch (RuntimeException e) {
+                return "{}";
+            }
         }
         if (table != null && !table.isBlank()) {
             try {
