@@ -46,7 +46,7 @@ used on either side:
 | `party` | `pg-csv` | PostgreSQL `landing` | CSV files via Calcite (`path` + `pattern`) |
 | `party` | `pg-xlsx` | PostgreSQL `landing` | XLSX files via Calcite (`path` + `pattern`) |
 
-Ready-to-load YAML and `.properties` for every pairing (including Mongo→Mongo,
+Reference-only YAML samples for pairings (including Mongo→Mongo,
 BigQuery→Mongo, BigQuery→BigQuery, and domain `account`) are on the classpath under
 [`src/main/resources/config/combinations/`](src/main/resources/config/combinations/).
 See [`src/main/resources/config/README.md`](src/main/resources/config/README.md).
@@ -96,22 +96,24 @@ If the recon user is not a superuser, grant connect and schema rights on that da
 ### 2. Configure the recon store
 
 Defaults live in [`src/main/resources/application.yml`](src/main/resources/application.yml)
-(`mms.recon.database`). Optional overlay copies:
-[`src/main/resources/config/database.yml`](src/main/resources/config/database.yml) /
-[`.properties`](src/main/resources/config/database.properties).
+(`mms.recon.database`):
 
-```properties
-mms.recon.database.host=localhost
-mms.recon.database.port=5432
-mms.recon.database.name=data_recon
-mms.recon.database.username=postgres
-mms.recon.database.password=postgres
-mms.recon.database.schema=public
-mms.recon.database.tables.run=rec_run
-mms.recon.database.tables.record=rec_record
+```yaml
+mms:
+  recon:
+    database:
+      host: ${DATA_RECON_DB_HOST:localhost}
+      port: ${DATA_RECON_DB_PORT:5432}
+      name: ${DATA_RECON_DB_NAME:data_recon}
+      username: ${DATA_RECON_DB_USER:postgres}
+      password: ${DATA_RECON_DB_PASSWORD:postgres}
+      schema: ${DATA_RECON_DB_SCHEMA:public}
+      tables:
+        run: ${DATA_RECON_DB_RUN_TABLE:rec_run}
+        record: ${DATA_RECON_DB_RECORD_TABLE:rec_record}
 ```
 
-Same keys in YAML under `mms.recon.database`. Environment variables:
+Environment variables:
 
 | Property | Env | Default |
 |---|---|---|
@@ -196,7 +198,7 @@ Datasource:
 
 Domain + profile (after datasources exist): see [APIs](#apis) curl examples below.
 
-Reference-only YAML/properties for pairings still live under
+Reference-only YAML for pairings still live under
 [`src/main/resources/config/combinations/`](src/main/resources/config/combinations/)
 if you want copy-paste examples — they are **not** loaded at startup.
 
@@ -261,11 +263,15 @@ Optional domain `schedule` triggers every profile on an interval. Optional profi
 
 ### 6. Auth and defaults
 
-```properties
-mms.recon.auth.username=admin
-mms.recon.auth.password=admin
-mms.recon.defaults.hashingStrategy=TypeLenient
-mms.recon.defaults.reconMode=MISMATCH_DETAILS
+```yaml
+mms:
+  recon:
+    auth:
+      username: ${DATA_RECON_USER:admin}
+      password: ${DATA_RECON_PASSWORD:admin}
+    defaults:
+      hashingStrategy: TypeLenient
+      reconMode: MISMATCH_DETAILS
 ```
 
 Env: `DATA_RECON_USER`, `DATA_RECON_PASSWORD` (defaults `admin` / `admin`).
@@ -517,8 +523,7 @@ export DATA_RECON_LLM_API_KEY=sk-...
 export DATA_RECON_LLM_MODEL=gpt-4o-mini
 ```
 
-Copies on classpath: [`src/main/resources/config/llm.yml`](src/main/resources/config/llm.yml)
-and [`.properties`](src/main/resources/config/llm.properties) (same keys as `application.yml`).
+Same keys are in [`application.yml`](src/main/resources/application.yml) under `mms.recon.llm`.
 
 Or pass URL and API key on the request (overrides or supplies config):
 
@@ -716,8 +721,8 @@ datasource with a **path** (directory or single file) and a **name pattern** (Ja
 All matching files are read as one table (`UNION ALL`). Apache POI is only the XLSX
 transport, the same way a BigQuery JDBC driver is transport for BigQuery.
 
-YAML (`application-dev.yml` or `classpath:config/datasources.yml`) and properties
-(`classpath:config/datasources.properties`):
+Register file datasources via `POST /api/datasources` (`type: file`) or reference YAML under
+`config/combinations/` (not loaded at startup):
 
 ```yaml
 mms:
@@ -736,13 +741,6 @@ mms:
           format: xlsx
           table: party
           sheet: party         # optional; first sheet if omitted
-```
-
-```properties
-mms.recon.file.datasources.csv.path=./data/files
-mms.recon.file.datasources.csv.pattern=party.*[.]csv
-mms.recon.file.datasources.csv.format=csv
-mms.recon.file.datasources.csv.table=party
 ```
 
 First row is the header (`party_id,party_name,...`). Profile `target.table` (or
