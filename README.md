@@ -47,8 +47,19 @@ used on either side:
 | `party` | `pg-xlsx` | PostgreSQL `landing` | XLSX files via Calcite (`path` + `pattern`) |
 
 Ready-to-load YAML and `.properties` for every pairing (including Mongo→Mongo,
-BigQuery→Mongo, BigQuery→BigQuery, and domain `account`) are in
-[`config/combinations/`](config/combinations/). See [`config/README.md`](config/README.md).
+BigQuery→Mongo, BigQuery→BigQuery, and domain `account`) are on the classpath under
+[`src/main/resources/config/combinations/`](src/main/resources/config/combinations/).
+See [`src/main/resources/config/README.md`](src/main/resources/config/README.md).
+
+Spring Boot config (env-specific):
+
+| File | Profile |
+|---|---|
+| [`application.yml`](src/main/resources/application.yml) | Shared (all envs) |
+| [`application-dev.yml`](src/main/resources/application-dev.yml) | `dev` (default) |
+| [`application-uat.yml`](src/main/resources/application-uat.yml) | `uat` |
+| [`application-sit.yml`](src/main/resources/application-sit.yml) | `sit` |
+| [`application-prod.yml`](src/main/resources/application-prod.yml) | `prod` |
 
 Other pairings (Mongo→Mongo, BigQuery→Mongo, BigQuery→BigQuery) are the same: define
 named datasources under `mms.recon.postgres.datasources`, `mms.recon.mongodb.datasources`,
@@ -82,8 +93,10 @@ If the recon user is not a superuser, grant connect and schema rights on that da
 
 ### 2. Configure the recon store
 
-YAML: [`config/database.yml`](config/database.yml)  
-Properties: [`config/database.properties`](config/database.properties)
+Defaults live in [`src/main/resources/application.yml`](src/main/resources/application.yml)
+(`mms.recon.database`). Optional overlay copies:
+[`src/main/resources/config/database.yml`](src/main/resources/config/database.yml) /
+[`.properties`](src/main/resources/config/database.properties).
 
 ```properties
 mms.recon.database.host=localhost
@@ -151,8 +164,9 @@ db.party.insertOne({
 
 ### 4. Configure named datasources
 
-YAML: [`config/datasources.yml`](config/datasources.yml)  
-Properties: [`config/datasources.properties`](config/datasources.properties)
+Local samples are in [`application-dev.yml`](src/main/resources/application-dev.yml).
+UAT / SIT / PROD use env vars in `application-{uat|sit|prod}.yml`.
+Optional overlays: [`src/main/resources/config/datasources.yml`](src/main/resources/config/datasources.yml).
 
 ```properties
 mms.recon.postgres.datasources.landing.host=localhost
@@ -176,11 +190,12 @@ Attach those names on each profile (`datasources.source` / `datasources.target`)
 
 ### 5. Configure a domain and profile
 
-Each pairing is a **profile** under a **domain**. One YAML and one `.properties` file
-per combination: [`config/combinations/`](config/combinations/). Index:
-[`config/README.md`](config/README.md).
+Each pairing is a **profile** under a **domain**. Dev defaults are in
+[`application-dev.yml`](src/main/resources/application-dev.yml). Extra combo samples:
+[`src/main/resources/config/combinations/`](src/main/resources/config/combinations/)
+([index](src/main/resources/config/README.md)).
 
-YAML (`config/combinations/party-pg-mongo.yml`):
+YAML (`classpath:config/combinations/party-pg-mongo.yml`):
 
 ```yaml
 mms:
@@ -243,7 +258,7 @@ statements for PostgreSQL / BigQuery; safe JSON binding for Mongo), not concaten
 | MongoDB | JSON filter. Still set `collection` and `fields`. `{}` is all documents | Replaces `"?"` / `?` placeholders |
 
 ```yaml
-# config/combinations/party-query.yml
+# classpath:config/combinations/party-query.yml
 source:
   query: >
     SELECT party_id AS "MigrationKey", party_name, country_code, status
@@ -326,28 +341,25 @@ export MONGO_DB=data
 export DATA_RECON_USER=admin
 export DATA_RECON_PASSWORD=admin
 
+```bash
+# Pass profile only (dev is default via PROFILE / SPRING_PROFILES_ACTIVE)
 mvn clean package
 mvn spring-boot:run
+
+mvn spring-boot:run -Dspring-boot.run.profiles=uat
+# or: export SPRING_PROFILES_ACTIVE=prod
+# or: export PROFILE=sit
 ```
 
-Load extra files (comma-separated). Maps merge:
+Jar — profile only:
 
 ```bash
-mvn spring-boot:run -Dspring.config.additional-location=file:config/combinations/party-pg-mongo.yml
-
-mvn spring-boot:run -Dspring.config.additional-location=file:config/combinations/party-pg-mongo.properties
-
-mvn spring-boot:run "-Dspring.config.additional-location=file:config/database.yml,file:config/datasources.yml,file:config/combinations/party-pg-pg.yml"
+java -Dspring.profiles.active=prod -jar target/data-recon-1.0.0-SNAPSHOT.jar
 ```
 
-Jar:
-
-```bash
-java -Dspring.config.additional-location=file:config/combinations/party-pg-pg.yml -jar target/data-recon-1.0.0-SNAPSHOT.jar
-```
-
-Runtime defaults also live in `src/main/resources/application.yml`. After start, Flyway
-has created `public.rec_run` and `public.rec_record` (or the names you set). Then trigger
+Shared settings: `src/main/resources/application.yml`.  
+Env catalog: `application-{dev|uat|sit|prod}.yml`.  
+After start, Flyway has created `public.rec_run` and `public.rec_record` (or the names you set). Then trigger
 a run (see APIs below). Each completed profile run stores counts, optional source/target
 queries, recon mode, and condition fields on `rec_run`, and per-key hashes on `rec_record`.
 
@@ -547,7 +559,8 @@ export DATA_RECON_LLM_API_KEY=sk-...
 export DATA_RECON_LLM_MODEL=gpt-4o-mini
 ```
 
-Copies: [`config/llm.yml`](config/llm.yml) and [`config/llm.properties`](config/llm.properties).
+Copies on classpath: [`src/main/resources/config/llm.yml`](src/main/resources/config/llm.yml)
+and [`.properties`](src/main/resources/config/llm.properties) (same keys as `application.yml`).
 
 Or pass URL and API key on the request (overrides or supplies config):
 
@@ -745,7 +758,8 @@ datasource with a **path** (directory or single file) and a **name pattern** (Ja
 All matching files are read as one table (`UNION ALL`). Apache POI is only the XLSX
 transport, the same way a BigQuery JDBC driver is transport for BigQuery.
 
-YAML (`config/datasources.yml`) and properties (`config/datasources.properties`):
+YAML (`application-dev.yml` or `classpath:config/datasources.yml`) and properties
+(`classpath:config/datasources.properties`):
 
 ```yaml
 mms:
