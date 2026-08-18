@@ -1,12 +1,8 @@
 # Config moved
 
-Data Recon Spring configuration is under **[`src/main/resources/`](../src/main/resources/)**.
+**`application.yml`** = recon DB (+ shared auth / optional LLM).  
+**Datasources, domains, profiles, tags** = API endpoints after start.
 
-**Pass only the profile** (`dev` | `uat` | `sit` | `prod`):
-
-```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=uat
-# or SPRING_PROFILES_ACTIVE / PROFILE
-```
+Pass Spring profile only (`dev` | `uat` | `sit` | `prod`).
 
 See [`src/main/resources/config/README.md`](../src/main/resources/config/README.md).

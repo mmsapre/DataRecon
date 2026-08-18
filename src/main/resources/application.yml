@@ -29,8 +29,9 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
-# Shared Data Recon settings (all environments). Env-specific datasources and
-# domains live in application-{dev|uat|sit|prod}.yml under this same folder.
+# Shared app bootstrap + recon result store only.
+# Datasources, domains, profiles, and tags are defined via API endpoints
+# (POST /api/datasources, /api/domains, /api/domains/{id}/profiles) — not in this file.
 mms:
   recon:
     auth:
@@ -40,7 +41,7 @@ mms:
     build:
       version: ${MMS_RECON_VERSION:dev}
 
-    # PostgreSQL store for rec_run / rec_record. Schema and table names are configurable.
+    # Recon DB only (rec_run / rec_record). Not source/target business DBs.
     database:
       host: ${DATA_RECON_DB_HOST:localhost}
       port: ${DATA_RECON_DB_PORT:5432}
@@ -53,7 +54,7 @@ mms:
         run: ${DATA_RECON_DB_RUN_TABLE:rec_run}
         record: ${DATA_RECON_DB_RECORD_TABLE:rec_record}
 
-    # Optional. When url and api-key are both set, Data Recon can summarize run results.
+    # Optional summaries (not datasources/domains).
     llm:
       url: ${DATA_RECON_LLM_URL:}
       api-key: ${DATA_RECON_LLM_API_KEY:}

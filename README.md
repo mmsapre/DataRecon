@@ -55,11 +55,13 @@ Spring Boot config (env-specific):
 
 | File | Profile |
 |---|---|
-| [`application.yml`](src/main/resources/application.yml) | Shared (all envs) |
-| [`application-dev.yml`](src/main/resources/application-dev.yml) | `dev` (default) |
-| [`application-uat.yml`](src/main/resources/application-uat.yml) | `uat` |
-| [`application-sit.yml`](src/main/resources/application-sit.yml) | `sit` |
-| [`application-prod.yml`](src/main/resources/application-prod.yml) | `prod` |
+| [`application.yml`](src/main/resources/application.yml) | Shared: **recon DB** + auth / optional LLM |
+| [`application-dev.yml`](src/main/resources/application-dev.yml) (and uat/sit/prod) | Empty catalogs; pass profile only |
+
+**Datasources, domains, profiles, and tags** are created through the HTTP APIs after start
+(see [APIs](#apis)). Sample combo YAML under
+[`src/main/resources/config/combinations/`](src/main/resources/config/combinations/)
+is reference-only.
 
 Other pairings (Mongo→Mongo, BigQuery→Mongo, BigQuery→BigQuery) are the same: define
 named datasources under `mms.recon.postgres.datasources`, `mms.recon.mongodb.datasources`,
@@ -162,85 +164,41 @@ db.party.insertOne({
 })
 ```
 
-### 4. Configure named datasources
+### 4. Register datasources, domains, and profiles (API)
 
-Local samples are in [`application-dev.yml`](src/main/resources/application-dev.yml).
-UAT / SIT / PROD use env vars in `application-{uat|sit|prod}.yml`.
-Optional overlays: [`src/main/resources/config/datasources.yml`](src/main/resources/config/datasources.yml).
+Catalog entries (including **tags**) are **not** seeded from YAML. After the server is up:
 
-```properties
-mms.recon.postgres.datasources.landing.host=localhost
-mms.recon.postgres.datasources.landing.database=data
-mms.recon.postgres.datasources.landing.username=postgres
-mms.recon.postgres.datasources.landing.password=postgres
-mms.recon.mongodb.datasources.mongo.uri=mongodb://localhost:27017
-mms.recon.mongodb.datasources.mongo.database=data
-mms.recon.bigquery.datasources.bq.project-id=my-gcp-project
-mms.recon.file.datasources.csv.path=./data/files
-mms.recon.file.datasources.csv.pattern=party.*[.]csv
-mms.recon.file.datasources.csv.format=csv
-mms.recon.file.datasources.csv.table=party
-mms.recon.file.datasources.xlsx.path=./data/files
-mms.recon.file.datasources.xlsx.pattern=party.*[.]xlsx
-mms.recon.file.datasources.xlsx.format=xlsx
-mms.recon.file.datasources.xlsx.table=party
+1. `POST /api/datasources` — postgres / mongo / bigquery (+ optional `tags`)
+2. `POST /api/domains` — domain (+ optional `tags`)
+3. `POST /api/domains/{domainId}/profiles` — profile attaching named datasources (+ optional `tags`)
+
+List with `?tag=...` on each resource. The UI Setup page uses the same APIs.
+
+Optional reference samples (not auto-loaded):
+[`src/main/resources/config/combinations/`](src/main/resources/config/combinations/).
+
+### 5. Example API bodies
+
+Datasource:
+
+```json
+{
+  "name": "landing",
+  "type": "postgres",
+  "tags": ["party", "prod"],
+  "host": "localhost",
+  "port": 5432,
+  "database": "data",
+  "username": "postgres",
+  "password": "postgres"
+}
 ```
 
-Attach those names on each profile (`datasources.source` / `datasources.target`).
+Domain + profile (after datasources exist): see [APIs](#apis) curl examples below.
 
-### 5. Configure a domain and profile
-
-Each pairing is a **profile** under a **domain**. Dev defaults are in
-[`application-dev.yml`](src/main/resources/application-dev.yml). Extra combo samples:
+Reference-only YAML/properties for pairings still live under
 [`src/main/resources/config/combinations/`](src/main/resources/config/combinations/)
-([index](src/main/resources/config/README.md)).
-
-YAML (`classpath:config/combinations/party-pg-mongo.yml`):
-
-```yaml
-mms:
-  recon:
-    domains:
-      party:
-        profiles:
-          pg-mongo:
-            datasources:
-              source: landing
-              target: mongo
-            migrationKey:
-              type: SINGLE
-              columns: [party_id]
-            recon:
-              mode: MISMATCH_DETAILS
-            source:
-              schema: landing
-              table: party
-              fields: [party_name, country_code, status]
-            target:
-              collection: party
-              fields: [party_name, country_code, status]
-              query: '{}'
-```
-
-Properties (same combination):
-
-```properties
-mms.recon.domains.party.profiles.pg-mongo.datasources.source=landing
-mms.recon.domains.party.profiles.pg-mongo.datasources.target=mongo
-mms.recon.domains.party.profiles.pg-mongo.migrationKey.type=SINGLE
-mms.recon.domains.party.profiles.pg-mongo.migrationKey.columns[0]=party_id
-mms.recon.domains.party.profiles.pg-mongo.recon.mode=MISMATCH_DETAILS
-mms.recon.domains.party.profiles.pg-mongo.source.schema=landing
-mms.recon.domains.party.profiles.pg-mongo.source.table=party
-mms.recon.domains.party.profiles.pg-mongo.source.fields[0]=party_name
-mms.recon.domains.party.profiles.pg-mongo.source.fields[1]=country_code
-mms.recon.domains.party.profiles.pg-mongo.source.fields[2]=status
-mms.recon.domains.party.profiles.pg-mongo.target.collection=party
-mms.recon.domains.party.profiles.pg-mongo.target.fields[0]=party_name
-mms.recon.domains.party.profiles.pg-mongo.target.fields[1]=country_code
-mms.recon.domains.party.profiles.pg-mongo.target.fields[2]=status
-mms.recon.domains.party.profiles.pg-mongo.target.query={}
-```
+if you want copy-paste examples — they are **not** loaded at startup.
 
 `migrationKey.type`: `SINGLE` | `COMPOSITE` | `DEFINED`  
 `recon.mode`: `COUNTS` | `MISMATCH_DETAILS` | `FIELD_DETAILS`

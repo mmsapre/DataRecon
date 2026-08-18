@@ -1,39 +1,11 @@
-# UAT — set SPRING_PROFILES_ACTIVE=uat
-# Datasources via env vars; domains/profiles usually via API or classpath combo overlays.
+# UAT — SPRING_PROFILES_ACTIVE=uat (or PROFILE=uat)
+# Datasources / domains / profiles / tags: define via API after start.
 mms:
   recon:
     postgres:
-      datasources:
-        landing:
-          host: ${PG_HOST}
-          port: ${PG_PORT:5432}
-          database: ${PG_DB}
-          username: ${PG_USER}
-          password: ${PG_PASSWORD}
-          max-size: ${PG_POOL:10}
-        master:
-          host: ${PG_HOST}
-          port: ${PG_PORT:5432}
-          database: ${PG_DB}
-          username: ${PG_USER}
-          password: ${PG_PASSWORD}
-          max-size: ${PG_POOL:10}
-
+      datasources: {}
     mongodb:
-      datasources:
-        mongo:
-          uri: ${MONGO_URI}
-          database: ${MONGO_DB}
-          username: ${MONGO_USER:}
-          password: ${MONGO_PASSWORD:}
-          auth-database: ${MONGO_AUTH_DB:admin}
-
+      datasources: {}
     bigquery:
-      datasources:
-        bq:
-          jdbc-url: ${BQ_JDBC_URL:}
-          driver-class-name: ${BQ_JDBC_DRIVER:com.simba.googlebigquery.jdbc.Driver}
-          project-id: ${BQ_PROJECT}
-          dataset: ${BQ_DATASET}
-          credentials-file: ${BQ_CREDENTIALS:}
-          calcite-schema: bq
+      datasources: {}
+    domains: {}

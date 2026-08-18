@@ -1,25 +1,28 @@
 # Configuration (classpath)
 
-**Pass only the Spring profile** — no extra config file location is required.
+**Pass only the Spring profile** (`dev` | `uat` | `sit` | `prod`).
 
-| Profile | File | Role |
-|---|---|---|
-| *(shared)* | [`../application.yml`](../application.yml) | Server, auth, recon DB, LLM, defaults |
-| `dev` (default) | [`../application-dev.yml`](../application-dev.yml) | Local PG/Mongo/BQ (+ file) + sample domains |
-| `uat` | [`../application-uat.yml`](../application-uat.yml) | UAT datasources via env vars |
-| `sit` | [`../application-sit.yml`](../application-sit.yml) | SIT datasources via env vars |
-| `prod` | [`../application-prod.yml`](../application-prod.yml) | PROD datasources via env vars |
+| File | Contains |
+|---|---|
+| [`../application.yml`](../application.yml) | Recon DB + shared auth / optional LLM / engine defaults |
+| [`../application-dev.yml`](../application-dev.yml) (and uat/sit/prod) | Empty catalogs — filled via API |
 
-```bash
-# default = dev
-mvn spring-boot:run
+## Runtime catalog (API)
 
-# pass profile only
-mvn spring-boot:run -Dspring-boot.run.profiles=uat
-export SPRING_PROFILES_ACTIVE=prod   # or PROFILE=prod
-java -Dspring.profiles.active=sit -jar target/data-recon-*.jar
+Datasources, domains, profiles, and **tags** are registered after startup:
+
+```text
+POST   /api/datasources
+POST   /api/domains
+POST   /api/domains/{domainId}/profiles
+GET    /api/datasources?tag=...
+GET    /api/domains?tag=...
+GET    /api/domains/{domainId}/profiles?tag=...
 ```
 
-`database.yml` / `datasources.yml` / `llm.yml` / `combinations/` here are **reference samples**
-(same keys as `application-*.yml`). Prefer editing the profile YAML; do not pass
-`spring.config.additional-location` for normal runs.
+YAML under `config/combinations/` is reference-only sample payloads, not loaded unless you choose to.
+
+```bash
+mvn spring-boot:run
+mvn spring-boot:run -Dspring-boot.run.profiles=uat
+```
