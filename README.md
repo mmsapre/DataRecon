@@ -159,9 +159,6 @@ Catalog entries (including **tags**) are **not** seeded from YAML. After the ser
 
 List with `?tag=...` on each resource. The UI Setup page uses the same APIs.
 
-Optional reference samples (not auto-loaded):
-[`src/main/resources/config/combinations/`](src/main/resources/config/combinations/).
-
 ### 5. Example API bodies
 
 Datasource:
@@ -181,10 +178,6 @@ Datasource:
 
 Domain + profile (after datasources exist): see [APIs](#apis) curl examples below.
 
-Reference-only YAML for pairings still live under
-[`src/main/resources/config/combinations/`](src/main/resources/config/combinations/)
-if you want copy-paste examples — they are **not** loaded at startup.
-
 `migrationKey.type`: `SINGLE` | `COMPOSITE` | `DEFINED`  
 `recon.mode`: `COUNTS` | `MISMATCH_DETAILS` | `FIELD_DETAILS`
 
@@ -201,7 +194,7 @@ statements for PostgreSQL / BigQuery; safe JSON binding for Mongo), not concaten
 | MongoDB | JSON filter. Still set `collection` and `fields`. `{}` is all documents | Replaces `"?"` / `?` placeholders |
 
 ```yaml
-# classpath:config/combinations/party-query.yml
+# Example profile side with bound query params (via API body / Setup UI)
 source:
   query: >
     SELECT party_id AS "MigrationKey", party_name, country_code, status
@@ -704,8 +697,17 @@ datasource with a **path** (directory or single file) and a **name pattern** (Ja
 All matching files are read as one table (`UNION ALL`). Apache POI is only the XLSX
 transport, the same way a BigQuery JDBC driver is transport for BigQuery.
 
-Register file datasources via `POST /api/datasources` (`type: file`) or reference YAML under
-`config/combinations/` (not loaded at startup):
+Register file datasources via `POST /api/datasources` (`type: file`):
+
+```yaml
+# Example request body fields for a file datasource
+path: ./data/files
+pattern: party.*[.]csv
+format: csv
+table: party
+```
+
+Or as nested catalog shape (documentation only):
 
 ```yaml
 mms:
