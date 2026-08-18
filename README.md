@@ -46,11 +46,6 @@ used on either side:
 | `party` | `pg-csv` | PostgreSQL `landing` | CSV files via Calcite (`path` + `pattern`) |
 | `party` | `pg-xlsx` | PostgreSQL `landing` | XLSX files via Calcite (`path` + `pattern`) |
 
-Reference-only YAML samples for pairings (including Mongo→Mongo,
-BigQuery→Mongo, BigQuery→BigQuery, and domain `account`) are on the classpath under
-[`src/main/resources/config/combinations/`](src/main/resources/config/combinations/).
-See [`src/main/resources/config/README.md`](src/main/resources/config/README.md).
-
 Spring Boot config (env-specific):
 
 | File | Profile |
@@ -59,22 +54,10 @@ Spring Boot config (env-specific):
 | [`application-dev.yml`](src/main/resources/application-dev.yml) (and uat/sit/prod) | Empty catalogs; pass profile only |
 
 **Datasources, domains, profiles, and tags** are created through the HTTP APIs after start
-(see [APIs](#apis)). Sample combo YAML under
-[`src/main/resources/config/combinations/`](src/main/resources/config/combinations/)
-is reference-only.
+(see [APIs](#apis)).
 
-Other pairings (Mongo→Mongo, BigQuery→Mongo, BigQuery→BigQuery) are the same: define
-named datasources under `mms.recon.postgres.datasources`, `mms.recon.mongodb.datasources`,
-`mms.recon.bigquery.datasources`, or `mms.recon.file.datasources`, then **attach** them to a profile:
-
-```yaml
-datasources:
-  source: landing
-  target: master
-```
-
-`type` is optional when the name exists in that catalog. Add more domains as siblings
-under `mms.recon.domains` (for example `account` with its own profiles).
+Other pairings (Mongo→Mongo, BigQuery→Mongo, BigQuery→BigQuery) are the same: register named
+datasources via API, then attach them on a profile (`datasources.source` / `datasources.target`).
 
 ## Setup
 
