@@ -124,6 +124,47 @@ class RecRunServiceTest {
     }
 
     @Test
+    void resolveProfileByQualifiedIdNameOrDomainHint() {
+        RecConfiguration configuration = configurationWithProfiles(
+                InMemoryRecStores.profile("party", "pg-pg", "source", "target"),
+                InMemoryRecStores.profile("party", "pg-mongo", "landing", "mongo")
+        );
+        RecRunService service = serviceSettings(configuration);
+
+        assertEquals("party.pg-mongo", service.resolveProfile(null, "party.pg-mongo").getId());
+        assertEquals("pg-pg", service.resolveProfile(null, "pg-pg").getProfileId());
+        assertEquals("pg-mongo", service.resolveProfile("party", "pg-mongo").getProfileId());
+        assertThrows(IllegalArgumentException.class, () -> service.resolveProfile(null, "missing"));
+    }
+
+    @Test
+    void runResolvedProfileForcesCountsOrDetails() {
+        RecConfiguration configuration = configurationWithProfiles(
+                InMemoryRecStores.profile("party", "pg-pg", "source", "target")
+        );
+        InMemoryRecStores.MemoryRecRunRepository runs = new InMemoryRecStores.MemoryRecRunRepository();
+        InMemoryRecStores.MemoryRecRecordRepository records = new InMemoryRecStores.MemoryRecRecordRepository();
+        DatasetRecService recService = new DatasetRecService(
+                new InMemoryRecStores.ScriptedRowLoader()
+                        .put("source", List.of(InMemoryRecStores.row("k", "v")))
+                        .put("target", List.of(InMemoryRecStores.row("k", "v"))),
+                runs,
+                records
+        );
+        RecRunService service = new RecRunService(configuration, recService, runs, records);
+
+        RecRunService.ProfileTriggerResult counts = service.runResolvedProfile(
+                null, "pg-pg", com.mms.data.recon.dataset.ReconMode.COUNTS, null, false).block();
+        assertEquals(com.mms.data.recon.dataset.ReconMode.COUNTS, counts.mode());
+        assertEquals("COUNTS", runs.find(counts.runId()).reconMode());
+
+        RecRunService.ProfileTriggerResult details = service.runResolvedProfile(
+                "party", "pg-pg", com.mms.data.recon.dataset.ReconMode.MISMATCH_DETAILS, null, false).block();
+        assertEquals(com.mms.data.recon.dataset.ReconMode.MISMATCH_DETAILS, details.mode());
+        assertEquals("MISMATCH_DETAILS", runs.find(details.runId()).reconMode());
+    }
+
+    @Test
     void controllerReconSettingsAreUsedForSubsequentRuns() {
         RecConfiguration configuration = configurationWithProfiles(
                 InMemoryRecStores.profile("party", "pg-pg", "source", "target")

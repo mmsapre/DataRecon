@@ -387,6 +387,11 @@ POST /api/domains/{domainId}/profiles/{profileId}/runs
   Detail modes stream source/target into DuckDB and compare with EXCEPT ALL;
   mismatch rows (with payloads) are stored and available via GET /api/runs/{runId}/records.
 
+POST /api/profiles/runs/counts
+POST /api/profiles/runs/details
+  Agent-friendly: resolve by profile name/id (or `domain.profile`) and force COUNTS or MISMATCH_DETAILS.
+  Body: { "profile": "party.pg-mongo" } or { "domain": "party", "profile": "pg-mongo" }
+
 GET  /api/domains/{domainId}/runs?active=true
 GET  /api/domains/{domainId}/runs/{domainRunId}
 GET  /api/domains/{domainId}/profiles/{profileId}/runs?active=true

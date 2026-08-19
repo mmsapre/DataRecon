@@ -1819,10 +1819,66 @@ POST /api/domains/party/profiles/pg-mongo/runs
 {
   "domainId": "party",
   "profileId": "pg-mongo",
+  "id": "party.pg-mongo",
+  "mode": "MISMATCH_DETAILS",
   "runId": 101
 }
 ```
 
+### 3.1b Agent trigger by name/id — counts vs details
+
+Resolve the profile by **qualified id** (`party.pg-mongo`), **profile id** (`pg-mongo` when unique),
+or **domain + profile**. Separate endpoints force the mode.
+
+**Counts**
+
+```http
+POST /api/profiles/runs/counts
+```
+
+```json
+{
+  "profile": "party.pg-mongo",
+  "forceFull": false
+}
+```
+
+Also valid: `{ "profile": "pg-mongo" }` or `{ "domain": "party", "profile": "pg-mongo" }`.
+
+**Response** `202 Accepted`
+
+```json
+{
+  "domainId": "party",
+  "profileId": "pg-mongo",
+  "id": "party.pg-mongo",
+  "mode": "COUNTS",
+  "runId": 101
+}
+```
+
+**Details** (`MISMATCH_DETAILS`)
+
+```http
+POST /api/profiles/runs/details
+```
+
+```json
+{
+  "profile": "pg-mongo",
+  "domain": "party",
+  "conditionFields": ["party_name", "status"],
+  "forceFull": false
+}
+```
+
+**Response** `202 Accepted` — same shape with `"mode": "MISMATCH_DETAILS"`.
+
+---
+
+### 3.1c Trigger one profile (path style, continued)
+
+**Response** `202 Accepted` (path form) is shown above in §3.1.
 ### 3.2 Trigger whole domain
 
 **Request**

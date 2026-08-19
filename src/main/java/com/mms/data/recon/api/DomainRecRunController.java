@@ -1,11 +1,14 @@
 package com.mms.data.recon.api;
 
+import com.mms.data.recon.dataset.DatasetConfiguration;
 import com.mms.data.recon.dataset.ReconMode;
 import com.mms.data.recon.dataset.ReconSettings;
 import com.mms.data.recon.recrun.RecRecordRepository;
 import com.mms.data.recon.recrun.RecRunRepository;
 import com.mms.data.recon.recrun.RecRunService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -66,9 +70,31 @@ public class DomainRecRunController {
             @PathVariable String domainId,
             @PathVariable String profileId,
             @Nullable @RequestBody ReconRunRequest request) {
-        return service.runProfile(domainId, profileId, mode(request), fields(request), forceFull(request))
+        ReconMode requested = mode(request);
+        return service.runProfile(domainId, profileId, requested, fields(request), forceFull(request))
                 .map(id -> ResponseEntity.accepted()
-                        .body(new ProfileRunTriggerApiModel(domainId, profileId, id)));
+                        .body(new ProfileRunTriggerApiModel(
+                                domainId,
+                                profileId,
+                                DatasetConfiguration.qualifiedId(domainId, profileId),
+                                requested == null ? null : requested.name(),
+                                id)));
+    }
+
+    @PostMapping("/profiles/runs/counts")
+    @Operation(summary = "Trigger COUNTS by profile name or id",
+            description = "Resolve profile by id, name, or domain.profile; force COUNTS mode")
+    public Mono<ResponseEntity<ProfileRunTriggerApiModel>> runProfileCounts(
+            @RequestBody ProfileTriggerRequest request) {
+        return triggerByRef(request, ReconMode.COUNTS);
+    }
+
+    @PostMapping("/profiles/runs/details")
+    @Operation(summary = "Trigger MISMATCH_DETAILS by profile name or id",
+            description = "Resolve profile by id, name, or domain.profile; force MISMATCH_DETAILS mode")
+    public Mono<ResponseEntity<ProfileRunTriggerApiModel>> runProfileDetails(
+            @RequestBody ProfileTriggerRequest request) {
+        return triggerByRef(request, ReconMode.MISMATCH_DETAILS);
     }
 
     @GetMapping("/domains/{domainId}/profiles/{profileId}/runs")
@@ -111,6 +137,36 @@ public class DomainRecRunController {
             @RequestParam(defaultValue = "") String status) {
         String filter = status == null || status.isBlank() ? null : status;
         return service.records(runId, filter);
+    }
+
+    private Mono<ResponseEntity<ProfileRunTriggerApiModel>> triggerByRef(
+            ProfileTriggerRequest request,
+            ReconMode mode) {
+        if (request == null || request.getProfile() == null || request.getProfile().isBlank()) {
+            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "profile is required"));
+        }
+        return service.runResolvedProfile(
+                        request.getDomain(),
+                        request.getProfile(),
+                        mode,
+                        request.getConditionFields(),
+                        Boolean.TRUE.equals(request.getForceFull()))
+                .map(result -> ResponseEntity.accepted()
+                        .body(new ProfileRunTriggerApiModel(
+                                result.domainId(),
+                                result.profileId(),
+                                result.id(),
+                                result.mode().name(),
+                                result.runId())))
+                .onErrorMap(IllegalArgumentException.class, this::statusFor);
+    }
+
+    private ResponseStatusException statusFor(IllegalArgumentException e) {
+        String message = e.getMessage() == null ? "Bad request" : e.getMessage();
+        HttpStatus status = message.startsWith("Unknown") ? HttpStatus.NOT_FOUND
+                : message.startsWith("Ambiguous") ? HttpStatus.CONFLICT
+                : HttpStatus.BAD_REQUEST;
+        return new ResponseStatusException(status, message, e);
     }
 
     private RunApiModel api(RecRunRepository.RunView r) {

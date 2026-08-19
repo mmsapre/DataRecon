@@ -1,8 +1,10 @@
 package com.mms.data.recon.recrun;
 
 import com.mms.data.recon.config.RecConfiguration;
+import com.mms.data.recon.dataset.DatasetConfiguration;
 import com.mms.data.recon.dataset.DatasetRecService;
 import com.mms.data.recon.dataset.DomainConfiguration;
+import com.mms.data.recon.dataset.ReconMode;
 import com.mms.data.recon.dataset.ReconSettings;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -10,7 +12,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 @Component
 public class RecRunService {
@@ -38,7 +42,7 @@ public class RecRunService {
     public Mono<Long> runProfile(
             String domainId,
             String profileId,
-            com.mms.data.recon.dataset.ReconMode mode,
+            ReconMode mode,
             List<String> conditionFields) {
         return runProfile(domainId, profileId, mode, conditionFields, false);
     }
@@ -46,12 +50,85 @@ public class RecRunService {
     public Mono<Long> runProfile(
             String domainId,
             String profileId,
-            com.mms.data.recon.dataset.ReconMode mode,
+            ReconMode mode,
             List<String> conditionFields,
             boolean forceFull) {
         var profile = configuration.requireProfile(domainId, profileId);
         ReconSettings settings = profile.resolvedRecon().overlay(mode, conditionFields);
         return datasetRecService.reconcile(profile, null, settings, forceFull);
+    }
+
+    /**
+     * Resolve a profile by qualified id ({@code domain.profile}), profile id, or
+     * optional domain + profile name, then run with an explicit mode.
+     */
+    public Mono<ProfileTriggerResult> runResolvedProfile(
+            String domainHint,
+            String profileRef,
+            ReconMode mode,
+            List<String> conditionFields,
+            boolean forceFull) {
+        DatasetConfiguration profile = resolveProfile(domainHint, profileRef);
+        ReconSettings settings = profile.resolvedRecon().overlay(mode, conditionFields);
+        return datasetRecService.reconcile(profile, null, settings, forceFull)
+                .map(runId -> new ProfileTriggerResult(
+                        profile.getDomainId(),
+                        profile.getProfileId(),
+                        profile.getId(),
+                        mode == null ? settings.resolvedMode() : mode,
+                        runId));
+    }
+
+    public DatasetConfiguration resolveProfile(String domainHint, String profileRef) {
+        String ref = blankToNull(profileRef);
+        if (ref == null) {
+            throw new IllegalArgumentException("profile is required (id, name, or domain.profile)");
+        }
+        String domain = blankToNull(domainHint);
+
+        int dot = ref.indexOf('.');
+        if (dot > 0 && dot < ref.length() - 1) {
+            String domainPart = ref.substring(0, dot);
+            String profilePart = ref.substring(dot + 1);
+            if (domain != null && !domain.equalsIgnoreCase(domainPart)) {
+                throw new IllegalArgumentException(
+                        "domain '" + domain + "' does not match profile ref '" + ref + "'");
+            }
+            return configuration.requireProfile(domainPart, profilePart);
+        }
+
+        if (domain != null) {
+            return configuration.requireProfile(domain, ref);
+        }
+
+        List<DatasetConfiguration> matches = configuration.allProfiles().stream()
+                .filter(profile -> matchesRef(profile, ref))
+                .toList();
+        if (matches.isEmpty()) {
+            throw new IllegalArgumentException("Unknown profile: " + ref);
+        }
+        if (matches.size() > 1) {
+            throw new IllegalArgumentException(
+                    "Ambiguous profile '" + ref + "'; qualify as domain.profile or pass domain");
+        }
+        return matches.get(0);
+    }
+
+    private static boolean matchesRef(DatasetConfiguration profile, String ref) {
+        String needle = ref.toLowerCase(Locale.ROOT);
+        return Objects.equals(lower(profile.getProfileId()), needle)
+                || Objects.equals(lower(profile.getId()), needle);
+    }
+
+    private static String lower(String value) {
+        return value == null ? null : value.toLowerCase(Locale.ROOT);
+    }
+
+    private static String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 
     public Mono<DomainRunResult> runDomain(String domainId) {
@@ -60,14 +137,14 @@ public class RecRunService {
 
     public Mono<DomainRunResult> runDomain(
             String domainId,
-            com.mms.data.recon.dataset.ReconMode mode,
+            ReconMode mode,
             List<String> conditionFields) {
         return runDomain(domainId, mode, conditionFields, false);
     }
 
     public Mono<DomainRunResult> runDomain(
             String domainId,
-            com.mms.data.recon.dataset.ReconMode mode,
+            ReconMode mode,
             List<String> conditionFields,
             boolean forceFull) {
         DomainConfiguration domain = configuration.requireDomain(domainId);
@@ -109,7 +186,7 @@ public class RecRunService {
     public ReconSettings applyProfileRecon(
             String domainId,
             String profileId,
-            com.mms.data.recon.dataset.ReconMode mode,
+            ReconMode mode,
             List<String> conditionFields) {
         ReconSettings recon = configuration.requireProfile(domainId, profileId).resolvedRecon();
         recon.apply(mode, conditionFields);
@@ -118,7 +195,7 @@ public class RecRunService {
 
     public ReconSettings applyDomainRecon(
             String domainId,
-            com.mms.data.recon.dataset.ReconMode mode,
+            ReconMode mode,
             List<String> conditionFields) {
         DomainConfiguration domain = configuration.requireDomain(domainId);
         domain.getRecon().apply(mode, conditionFields);
@@ -157,4 +234,11 @@ public class RecRunService {
     public record DomainRunResult(String domainId, long domainRunId, Map<String, Long> runIds) {}
 
     public record DomainRunDetail(RecRunRepository.RunView domain, List<RecRunRepository.RunView> profiles) {}
+
+    public record ProfileTriggerResult(
+            String domainId,
+            String profileId,
+            String id,
+            ReconMode mode,
+            long runId) {}
 }
