@@ -17,6 +17,8 @@ spring:
       write-dates-as-timestamps: false
   flyway:
     enabled: true
+    # Allow programmatic clean when mms.recon.database.recreate-on-start=true (see ReconFlywayConfig).
+    clean-disabled: false
     create-schemas: true
     default-schema: ${mms.recon.database.schema:public}
     schemas:
@@ -63,6 +65,8 @@ mms:
       password: ${DATA_RECON_DB_PASSWORD:postgres}
       maximum-pool-size: 5
       schema: ${DATA_RECON_DB_SCHEMA:public}
+      # true = Flyway clean + migrate every start (wipes rec_*). Enabled in application-dev.yml.
+      recreate-on-start: ${DATA_RECON_DB_RECREATE_ON_START:false}
       tables:
         run: ${DATA_RECON_DB_RUN_TABLE:rec_run}
         record: ${DATA_RECON_DB_RECORD_TABLE:rec_record}

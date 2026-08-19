@@ -13,6 +13,11 @@ public class ReconDatabaseProperties {
     private int maximumPoolSize = 5;
     private String schema = "public";
     private Tables tables = new Tables();
+    /**
+     * When true, Flyway {@code clean}s the recon schema then migrates on every start
+     * (drops and recreates {@code rec_*} tables). Intended for local/dev only.
+     */
+    private boolean recreateOnStart = false;
 
     public String getHost() { return host; }
     public void setHost(String host) { this.host = host; }
@@ -37,6 +42,9 @@ public class ReconDatabaseProperties {
 
     public Tables getTables() { return tables; }
     public void setTables(Tables tables) { this.tables = tables == null ? new Tables() : tables; }
+
+    public boolean isRecreateOnStart() { return recreateOnStart; }
+    public void setRecreateOnStart(boolean recreateOnStart) { this.recreateOnStart = recreateOnStart; }
 
     public String jdbcUrl() {
         return "jdbc:postgresql://%s:%d/%s?currentSchema=%s".formatted(
