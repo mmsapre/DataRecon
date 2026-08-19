@@ -32,9 +32,11 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
-# Shared app bootstrap + recon result store only.
-# Datasources, domains, profiles, and tags are defined via API endpoints
-# (POST /api/datasources, /api/domains, /api/domains/{id}/profiles) — not in this file.
+# Shared bootstrap. Data Recon’s own store is PostgreSQL only (mms.recon.database):
+#   - results: rec_run / rec_record
+#   - catalog: rec_datasource / rec_domain / rec_profile (API-managed, versioned)
+# Named source/target connections are also registered via API and stored in that
+# same Postgres catalog — not in this YAML.
 mms:
   recon:
     auth:
@@ -47,7 +49,7 @@ mms:
     # Actor stamped on created_by / updated_by when the application writes rows.
     actor: ${DATA_RECON_ACTOR:${spring.application.name:data-recon}}
 
-    # Recon DB only (rec_run / rec_record / catalog tables). Not source/target business DBs.
+    # App Postgres only — results + catalog. Not Mongo/BigQuery; not source/target DBs.
     database:
       host: ${DATA_RECON_DB_HOST:localhost}
       port: ${DATA_RECON_DB_PORT:5432}

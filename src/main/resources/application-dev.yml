@@ -1,17 +1,8 @@
 # Local / developer profile (default).
-# Datasources, domains, profiles, and tags are defined via API — not seeded here.
-# application.yml holds only the recon result store (+ shared auth/LLM/defaults).
-#
-# Setup order after start:
-#   1) POST /api/datasources   (postgres|mongo|bigquery, optional tags)
-#   2) POST /api/domains       (optional tags)
-#   3) POST /api/domains/{id}/profiles  (attach datasource names, optional tags)
+# App store is PostgreSQL only — see mms.recon.database in application.yml
+# (results + catalog). Optional empty map below is YAML seed for named
+# source/target Postgres connections; prefer POST /api/datasources.
 mms:
   recon:
     postgres:
       datasources: {}
-    mongodb:
-      datasources: {}
-    bigquery:
-      datasources: {}
-    domains: {}

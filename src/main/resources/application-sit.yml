@@ -1,11 +1,6 @@
 # SIT — SPRING_PROFILES_ACTIVE=sit (or PROFILE=sit)
-# Datasources / domains / profiles / tags: define via API after start.
+# App store is PostgreSQL only (application.yml → mms.recon.database).
 mms:
   recon:
     postgres:
       datasources: {}
-    mongodb:
-      datasources: {}
-    bigquery:
-      datasources: {}
-    domains: {}

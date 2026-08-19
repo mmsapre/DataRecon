@@ -22,9 +22,9 @@ A Java 17 / Maven / Spring Boot service that reconciles source and target datase
 
 | Role | Store |
 |---|---|
-| Reconciliation results | PostgreSQL only (`mms.recon.database`; schema/table names configurable) |
-| Source dataset | PostgreSQL, MongoDB, BigQuery (Calcite), or CSV/XLSX files (Calcite) |
-| Target dataset | PostgreSQL, MongoDB, BigQuery (Calcite), or CSV/XLSX files (Calcite) |
+| **Data Recon’s own DB** (results + catalog) | **PostgreSQL only** (`mms.recon.database`) — `rec_run` / `rec_record`, and versioned `rec_datasource` / `rec_domain` / `rec_profile`. Not Mongo or BigQuery. |
+| Source dataset (business data being compared) | Named datasource: PostgreSQL, MongoDB, BigQuery (Calcite), or CSV/XLSX (Calcite) |
+| Target dataset (business data being compared) | Named datasource: PostgreSQL, MongoDB, BigQuery (Calcite), or CSV/XLSX (Calcite) |
 
 A **domain** is a business area. Each domain has one or more **profiles**, and each
 profile is one source/target combination. Trigger and results work at domain level
