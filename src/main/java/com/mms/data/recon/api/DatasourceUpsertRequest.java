@@ -88,20 +88,24 @@ public class DatasourceUpsertRequest {
         return props;
     }
 
-    private static String firstNonBlank(String primary, String fallback) {
-        if (primary != null && !primary.isBlank()) {
-            return primary.trim();
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
         }
-        if (fallback != null && !fallback.isBlank()) {
-            return fallback.trim();
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
         }
         return null;
     }
 
     public MongoDatasourceProperties toMongo(String name) {
         MongoDatasourceProperties props = new MongoDatasourceProperties(name);
-        if (uri != null) {
-            props.setUri(uri);
+        // Accept uri, or url/jdbcUrl aliases (same payload shape as postgres).
+        String connectionUri = firstNonBlank(uri, url, jdbcUrl);
+        if (connectionUri != null) {
+            props.setUri(connectionUri);
         }
         if (database != null) {
             props.setDatabase(database);

@@ -3,7 +3,8 @@ package com.mms.data.recon.config;
 public class MongoDatasourceProperties {
 
     private String name;
-    private String uri = "mongodb://localhost:27017";
+    /** Required connection URI, e.g. {@code mongodb://host:27017} or {@code mongodb+srv://...}. */
+    private String uri;
     private String database = "data";
     private String username;
     private String password;

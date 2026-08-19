@@ -7,6 +7,11 @@ spring:
     default: ${PROFILE:dev}
   main:
     web-application-type: reactive
+  # App store is JDBC; named Postgres source/target pools are built manually (not spring.r2dbc.*).
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.r2dbc.R2dbcAutoConfiguration
+      - org.springframework.boot.autoconfigure.r2dbc.R2dbcTransactionManagerAutoConfiguration
   jackson:
     serialization:
       write-dates-as-timestamps: false

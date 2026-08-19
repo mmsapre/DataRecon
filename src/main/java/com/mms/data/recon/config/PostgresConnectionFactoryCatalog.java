@@ -6,6 +6,7 @@ import io.r2dbc.postgresql.PostgresqlConnectionConfiguration;
 import io.r2dbc.postgresql.PostgresqlConnectionFactory;
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
+import io.r2dbc.spi.ConnectionFactoryOptions;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PreDestroy;
 import org.springframework.stereotype.Component;
@@ -91,7 +92,7 @@ public class PostgresConnectionFactoryCatalog {
         String schema = properties.resolveSchema();
         String url = properties.resolveUrl();
         if (url != null && !url.isBlank()) {
-            return ConnectionFactories.get(withSchemaQueryParam(url, schema));
+            return ConnectionFactories.get(optionsFromUrl(properties, url, schema));
         }
         PostgresqlConnectionConfiguration.Builder builder = PostgresqlConnectionConfiguration.builder()
                 .host(properties.getHost())
@@ -103,6 +104,53 @@ public class PostgresConnectionFactoryCatalog {
             builder.schema(schema.trim());
         }
         return new PostgresqlConnectionFactory(builder.build());
+    }
+
+    /**
+     * Build R2DBC options from a connection URI plus optional username/password fields.
+     * Accepts {@code r2dbc:}, {@code jdbc:postgresql:}, and bare {@code postgresql://} forms.
+     */
+    static ConnectionFactoryOptions optionsFromUrl(
+            PostgresDatasourceProperties properties,
+            String url,
+            String schema
+    ) {
+        String r2dbcUrl = toR2dbcUrl(withSchemaQueryParam(url, schema));
+        ConnectionFactoryOptions parsed = ConnectionFactoryOptions.parse(r2dbcUrl);
+        ConnectionFactoryOptions.Builder builder = ConnectionFactoryOptions.builder().from(parsed);
+        if (!parsed.hasOption(ConnectionFactoryOptions.USER)
+                && properties.getUsername() != null
+                && !properties.getUsername().isBlank()) {
+            builder.option(ConnectionFactoryOptions.USER, properties.getUsername());
+        }
+        if (!parsed.hasOption(ConnectionFactoryOptions.PASSWORD) && properties.getPassword() != null) {
+            builder.option(ConnectionFactoryOptions.PASSWORD, properties.getPassword());
+        }
+        return builder.build();
+    }
+
+    /** Normalize JDBC / postgres URLs to an {@code r2dbc:} scheme ConnectionFactories accepts. */
+    static String toR2dbcUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return url;
+        }
+        String trimmed = url.trim();
+        if (trimmed.regionMatches(true, 0, "r2dbc:", 0, 6)) {
+            return trimmed;
+        }
+        if (trimmed.regionMatches(true, 0, "jdbc:postgresql:", 0, 16)) {
+            return "r2dbc:postgresql:" + trimmed.substring(16);
+        }
+        if (trimmed.regionMatches(true, 0, "jdbc:postgres:", 0, 14)) {
+            return "r2dbc:postgresql:" + trimmed.substring(14);
+        }
+        if (trimmed.regionMatches(true, 0, "postgresql://", 0, 13)) {
+            return "r2dbc:" + trimmed;
+        }
+        if (trimmed.regionMatches(true, 0, "postgres://", 0, 11)) {
+            return "r2dbc:postgresql://" + trimmed.substring(11);
+        }
+        return trimmed;
     }
 
     static String withSchemaQueryParam(String url, String schema) {

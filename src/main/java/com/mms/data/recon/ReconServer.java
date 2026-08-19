@@ -12,9 +12,19 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.r2dbc.R2dbcAutoConfiguration;
+import org.springframework.boot.autoconfigure.r2dbc.R2dbcTransactionManagerAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
-@SpringBootApplication
+/**
+ * Recon metadata uses JDBC ({@code reconDataSource}); business Postgres uses named R2DBC pools
+ * from {@code PostgresConnectionFactoryCatalog}. Spring Boot's primary R2DBC auto-config is
+ * excluded so a missing {@code spring.r2dbc.url} does not fail startup.
+ */
+@SpringBootApplication(exclude = {
+        R2dbcAutoConfiguration.class,
+        R2dbcTransactionManagerAutoConfiguration.class
+})
 @EnableConfigurationProperties({
         AuthConfiguration.class,
         BuildInfoConfiguration.class,

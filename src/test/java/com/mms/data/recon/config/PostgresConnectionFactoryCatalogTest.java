@@ -1,5 +1,6 @@
 package com.mms.data.recon.config;
 
+import io.r2dbc.spi.ConnectionFactoryOptions;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -48,5 +49,39 @@ class PostgresConnectionFactoryCatalogTest {
                         "other"
                 )
         );
+    }
+
+    @Test
+    void normalizesJdbcAndBarePostgresUrlsToR2dbc() {
+        assertEquals(
+                "r2dbc:postgresql://localhost:5432/data",
+                PostgresConnectionFactoryCatalog.toR2dbcUrl("jdbc:postgresql://localhost:5432/data")
+        );
+        assertEquals(
+                "r2dbc:postgresql://localhost:5432/data",
+                PostgresConnectionFactoryCatalog.toR2dbcUrl("postgresql://localhost:5432/data")
+        );
+        assertEquals(
+                "r2dbc:postgresql://localhost:5432/data",
+                PostgresConnectionFactoryCatalog.toR2dbcUrl("postgres://localhost:5432/data")
+        );
+        assertEquals(
+                "r2dbc:postgresql://localhost:5432/data",
+                PostgresConnectionFactoryCatalog.toR2dbcUrl("r2dbc:postgresql://localhost:5432/data")
+        );
+    }
+
+    @Test
+    void appliesUsernamePasswordWhenMissingFromUrl() {
+        PostgresDatasourceProperties props = new PostgresDatasourceProperties("landing");
+        props.setUsername("recon");
+        props.setPassword("secret");
+        ConnectionFactoryOptions options = PostgresConnectionFactoryCatalog.optionsFromUrl(
+                props,
+                "r2dbc:postgresql://localhost:5432/data",
+                null
+        );
+        assertEquals("recon", options.getRequiredValue(ConnectionFactoryOptions.USER));
+        assertEquals("secret", options.getRequiredValue(ConnectionFactoryOptions.PASSWORD));
     }
 }

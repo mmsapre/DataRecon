@@ -46,12 +46,28 @@ public class MongoRowLoader {
                 .projection(Projections.include(projected))
                 .batchSize(Math.max(1, batchSize));
 
+        String ref = definition.getDatasourceRef();
         return Flux.from(find)
                 .map(document -> MongoDocumentMapper.toRawRow(
                         document,
                         definition.getMigrationKey(),
                         definition.getFields()
-                ));
+                ))
+                .onErrorMap(error -> {
+                    String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+                    if (message.toLowerCase().contains("connection refused")
+                            || message.contains("MongoSocketOpenException")
+                            || error.getClass().getSimpleName().contains("MongoSocket")) {
+                        return new ConfigurationException(
+                                "Mongo datasource [" + ref
+                                        + "] could not connect (connection refused). "
+                                        + "Check the datasource uri — it must reach a running MongoDB "
+                                        + "(not an implied localhost default).",
+                                error
+                        );
+                    }
+                    return error;
+                });
     }
 
     private static Bson parseFilter(String query, List<Object> params) {

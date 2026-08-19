@@ -52,6 +52,12 @@ public class MongoClientCatalog {
         if (properties == null || properties.getName() == null || properties.getName().isBlank()) {
             throw new ConfigurationException("Mongo datasource name is required");
         }
+        if (properties.getUri() == null || properties.getUri().isBlank()) {
+            throw new ConfigurationException(
+                    "Mongo datasource '" + properties.getName()
+                            + "' requires uri (e.g. mongodb://host:27017/db) — localhost is not assumed"
+            );
+        }
         String name = properties.getName();
         byName.put(name, properties);
         MongoClient previous = clients.remove(name);
@@ -69,31 +75,48 @@ public class MongoClientCatalog {
     }
 
     private static MongoClient create(MongoDatasourceProperties properties) {
-        MongoClientSettings.Builder builder = MongoClientSettings.builder()
-                .applyConnectionString(new ConnectionString(properties.getUri()));
+        String uri = requireUri(properties);
+        try {
+            MongoClientSettings.Builder builder = MongoClientSettings.builder()
+                    .applyConnectionString(new ConnectionString(uri));
 
-        if (properties.getUsername() != null && !properties.getUsername().isBlank()) {
-            char[] password = properties.getPassword() == null
-                    ? new char[0]
-                    : properties.getPassword().toCharArray();
-            String authDb = properties.getAuthDatabase() == null || properties.getAuthDatabase().isBlank()
-                    ? "admin"
-                    : properties.getAuthDatabase();
-            builder.credential(MongoCredential.createCredential(
-                    properties.getUsername(),
-                    authDb,
-                    password
-            ));
+            if (properties.getUsername() != null && !properties.getUsername().isBlank()) {
+                char[] password = properties.getPassword() == null
+                        ? new char[0]
+                        : properties.getPassword().toCharArray();
+                String authDb = properties.getAuthDatabase() == null || properties.getAuthDatabase().isBlank()
+                        ? "admin"
+                        : properties.getAuthDatabase();
+                builder.credential(MongoCredential.createCredential(
+                        properties.getUsername(),
+                        authDb,
+                        password
+                ));
+            }
+
+            return MongoClients.create(builder.build());
+        } catch (RuntimeException e) {
+            throw new ConfigurationException(
+                    "Invalid Mongo uri for datasource '" + properties.getName() + "': " + uri,
+                    e
+            );
         }
+    }
 
-        return MongoClients.create(builder.build());
+    private static String requireUri(MongoDatasourceProperties properties) {
+        if (properties.getUri() == null || properties.getUri().isBlank()) {
+            throw new ConfigurationException(
+                    "Mongo datasource '" + properties.getName() + "' has no uri configured"
+            );
+        }
+        return properties.getUri().trim();
     }
 
     private static String resolveDatabase(MongoDatasourceProperties properties) {
         if (properties.getDatabase() != null && !properties.getDatabase().isBlank()) {
             return properties.getDatabase();
         }
-        String fromUri = new ConnectionString(properties.getUri()).getDatabase();
+        String fromUri = new ConnectionString(requireUri(properties)).getDatabase();
         return fromUri == null || fromUri.isBlank() ? "data" : fromUri;
     }
 
