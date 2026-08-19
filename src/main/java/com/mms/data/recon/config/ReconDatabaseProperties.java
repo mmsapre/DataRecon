@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class ReconDatabaseProperties {
 
     private String host = "localhost";
-    private int port = 5432;
+    private int port = 5436;
     private String name = "data_recon";
     private String username = "postgres";
     private String password = "postgres";

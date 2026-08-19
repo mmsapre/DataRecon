@@ -24,7 +24,8 @@ import java.util.Set;
 
 /**
  * Streams source/target rows into DuckDB and compares with {@code EXCEPT ALL}
- * to produce mismatch counts and per-key detail payloads.
+ * for detail modes ({@link ReconMode#MISMATCH_DETAILS}, {@link ReconMode#FIELD_DETAILS}).
+ * {@link ReconMode#COUNTS} uses hash compare instead (see {@code DatasetRecService}).
  */
 @Component
 public class DuckDbExceptReconciler {

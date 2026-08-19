@@ -73,10 +73,18 @@ public class DatasetConfiguration {
     }
 
     public void initialize() {
+        initialize(null);
+    }
+
+    public void initialize(com.mms.data.recon.config.DatasourceCatalog catalog) {
         if (source == null || target == null) {
             throw new IllegalArgumentException("Profile " + id + " requires source and target");
         }
         attachDatasources();
+        if (catalog != null) {
+            source.applyCatalogDefaults(catalog);
+            target.applyCatalogDefaults(catalog);
+        }
         MigrationKeySpec resolvedKey = resolveMigrationKey();
         source.initialize(id, DataLoadDefinition.Role.SOURCE, queryFileBaseDir);
         target.initialize(id, DataLoadDefinition.Role.TARGET, queryFileBaseDir);

@@ -14,6 +14,8 @@ public class BigQueryDatasourceProperties {
     private int oauthType = 3;
     private int maxSize = 5;
     private String calciteSchema = "bq";
+    /** Default dataset/schema for profiles that attach this datasource (overridable per side). */
+    private String schema;
     private java.util.List<String> tags = java.util.List.of();
 
     public BigQueryDatasourceProperties() {}
@@ -57,6 +59,20 @@ public class BigQueryDatasourceProperties {
 
     public String getCalciteSchema() { return calciteSchema; }
     public void setCalciteSchema(String calciteSchema) { this.calciteSchema = calciteSchema; }
+
+    public String getSchema() { return schema; }
+    public void setSchema(String schema) { this.schema = schema; }
+
+    /** Schema used when generating SQL: explicit schema, else dataset. */
+    public String resolveDefaultSchema() {
+        if (schema != null && !schema.isBlank()) {
+            return schema.trim();
+        }
+        if (dataset != null && !dataset.isBlank()) {
+            return dataset.trim();
+        }
+        return null;
+    }
 
     public java.util.List<String> getTags() { return tags; }
     public void setTags(java.util.List<String> tags) { this.tags = Tags.copy(tags); }

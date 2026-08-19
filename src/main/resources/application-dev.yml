@@ -1,8 +1,12 @@
 # Local / developer profile (default).
-# App store is PostgreSQL only — see mms.recon.database in application.yml
-# (results + catalog). Optional empty map below is YAML seed for named
-# source/target Postgres connections; prefer POST /api/datasources.
+# App store is PostgreSQL only (results + catalog).
 mms:
   recon:
+    database:
+      host: localhost
+      port: 5436
+      name: data_recon
+      username: postgres
+      password: postgres
     postgres:
       datasources: {}

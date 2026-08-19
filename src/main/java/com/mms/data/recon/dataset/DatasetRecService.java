@@ -85,6 +85,7 @@ public class DatasetRecService {
                 baselineRunId
         );
 
+        // COUNTS: hash compare (no DuckDB). Detail modes: same field query → DuckDB EXCEPT.
         if (settings.resolvedMode() == ReconMode.COUNTS) {
             return hashReconcile(runId, dataset, settings)
                     .doOnError(error -> runRepository.fail(runId, error))

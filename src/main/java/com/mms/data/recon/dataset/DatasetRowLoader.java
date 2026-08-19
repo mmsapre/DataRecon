@@ -29,6 +29,7 @@ public class DatasetRowLoader implements RowLoader {
 
     @Override
     public Flux<DataLoadDefinition.RawRow> load(DataLoadDefinition definition, int batchSize) {
+        definition.applyCatalogDefaults(datasourceCatalog);
         return switch (resolveType(definition)) {
             case postgres -> postgresRowLoader.load(definition);
             case mongo -> mongoRowLoader.load(definition, batchSize);

@@ -67,8 +67,16 @@ public class RecConfiguration {
             String domainId,
             String profileId,
             DatasetConfiguration profile) {
+        return putProfile(domainId, profileId, profile, null);
+    }
+
+    public synchronized DatasetConfiguration putProfile(
+            String domainId,
+            String profileId,
+            DatasetConfiguration profile,
+            DatasourceCatalog catalog) {
         DomainConfiguration domain = requireDomain(domainId);
-        DatasetConfiguration stored = domain.initializeProfile(profileId, profile, defaults);
+        DatasetConfiguration stored = domain.initializeProfile(profileId, profile, defaults, catalog);
         domain.getProfiles().put(stored.getProfileId(), stored);
         return stored;
     }

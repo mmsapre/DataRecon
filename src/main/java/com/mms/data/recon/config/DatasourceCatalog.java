@@ -17,6 +17,7 @@ public class DatasourceCatalog {
 
     private final ConcurrentHashMap<String, DatasourceType> types = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, List<String>> tagsByName = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, String> schemaByName = new ConcurrentHashMap<>();
 
     @Autowired
     public DatasourceCatalog(
@@ -67,7 +68,26 @@ public class DatasourceCatalog {
         return tagsByName.getOrDefault(datasourceRef, List.of());
     }
 
+    /**
+     * Default schema/dataset for a named datasource. Profiles reuse this when their
+     * source/target side does not set {@code schema}.
+     */
+    public Optional<String> schemaOf(String datasourceRef) {
+        if (datasourceRef == null || datasourceRef.isBlank()) {
+            return Optional.empty();
+        }
+        String schema = schemaByName.get(datasourceRef);
+        if (schema == null || schema.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.of(schema);
+    }
+
     public synchronized void register(String name, DatasourceType type, List<String> tags) {
+        register(name, type, tags, null);
+    }
+
+    public synchronized void register(String name, DatasourceType type, List<String> tags, String schema) {
         if (name == null || name.isBlank()) {
             throw new ConfigurationException("Datasource name is required");
         }
@@ -82,11 +102,17 @@ public class DatasourceCatalog {
             );
         }
         tagsByName.put(name, Tags.normalize(tags));
+        if (schema == null || schema.isBlank()) {
+            schemaByName.remove(name);
+        } else {
+            schemaByName.put(name, schema.trim());
+        }
     }
 
     public synchronized void unregister(String name) {
         types.remove(name);
         tagsByName.remove(name);
+        schemaByName.remove(name);
     }
 
     private void addAll(List<?> properties, DatasourceType type) {
@@ -96,6 +122,7 @@ public class DatasourceCatalog {
         for (Object property : properties) {
             String name = nameOf(property);
             List<String> tags = tagsOfProperty(property);
+            String schema = schemaOfProperty(property);
             DatasourceType existing = types.put(name, type);
             if (existing != null && existing != type) {
                 throw new ConfigurationException(
@@ -103,7 +130,20 @@ public class DatasourceCatalog {
                 );
             }
             tagsByName.put(name, Tags.normalize(tags));
+            if (schema != null && !schema.isBlank()) {
+                schemaByName.put(name, schema.trim());
+            }
         }
+    }
+
+    private static String schemaOfProperty(Object property) {
+        if (property instanceof PostgresDatasourceProperties postgres) {
+            return postgres.resolveSchema();
+        }
+        if (property instanceof BigQueryDatasourceProperties bigquery) {
+            return bigquery.resolveDefaultSchema();
+        }
+        return null;
     }
 
     private static List<String> tagsOfProperty(Object property) {

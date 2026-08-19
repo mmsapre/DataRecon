@@ -373,7 +373,7 @@ public class RecCatalogService {
     private DatasetConfiguration storeProfile(String domainId, String profileId, DatasetConfiguration profile) {
         try {
             CatalogAudit audit = profile.getAudit();
-            DatasetConfiguration stored = configuration.putProfile(domainId, profileId, profile);
+            DatasetConfiguration stored = configuration.putProfile(domainId, profileId, profile, catalog);
             if (audit != null) {
                 stored.setAudit(audit);
             }

@@ -52,7 +52,7 @@ mms:
     # App Postgres only — results + catalog. Not Mongo/BigQuery; not source/target DBs.
     database:
       host: ${DATA_RECON_DB_HOST:localhost}
-      port: ${DATA_RECON_DB_PORT:5432}
+      port: ${DATA_RECON_DB_PORT:5436}
       name: ${DATA_RECON_DB_NAME:data_recon}
       username: ${DATA_RECON_DB_USER:postgres}
       password: ${DATA_RECON_DB_PASSWORD:postgres}

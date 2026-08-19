@@ -45,12 +45,20 @@ public class DomainConfiguration {
             String profileId,
             DatasetConfiguration profile,
             RecConfiguration.Defaults defaults) {
+        return initializeProfile(profileId, profile, defaults, null);
+    }
+
+    public DatasetConfiguration initializeProfile(
+            String profileId,
+            DatasetConfiguration profile,
+            RecConfiguration.Defaults defaults,
+            com.mms.data.recon.config.DatasourceCatalog catalog) {
         requireName("profile", profileId);
         profile.setDomainId(this.id);
         profile.setProfileId(profileId);
         profile.setId(DatasetConfiguration.qualifiedId(this.id, profileId));
         profile.applyDefaults(defaults, this);
-        profile.initialize();
+        profile.initialize(catalog);
         return profile;
     }
 

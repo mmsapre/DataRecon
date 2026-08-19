@@ -41,8 +41,10 @@ class DatasourceControllerTest {
         create.setTags(List.of("Staging", "party"));
         create.setHost("localhost");
         create.setDatabase("staging");
+        create.setSchema("landing");
         DatasourceApiModel created = controller.create(create).getBody();
         assertEquals("staging-pg", created.name());
+        assertEquals("landing", created.schema());
         assertEquals(List.of("staging", "party"), created.tags());
         assertEquals("data-recon", created.createdBy());
         assertEquals(1, created.version());
@@ -53,6 +55,7 @@ class DatasourceControllerTest {
         update.setDatabase("staging2");
         DatasourceApiModel updated = controller.update("staging-pg", update);
         assertEquals(2, updated.version());
+        assertEquals("landing", updated.schema());
         assertEquals("data-recon", updated.updatedBy());
         assertEquals(true, updated.active());
 

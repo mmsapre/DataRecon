@@ -100,6 +100,26 @@ public class DataLoadDefinition {
         }
     }
 
+    /**
+     * Fill blank schema (and type) from the shared datasource catalog so multiple
+     * profiles can reuse the same connection without repeating schema.
+     */
+    public void applyCatalogDefaults(DatasourceCatalog catalog) {
+        if (catalog == null) {
+            return;
+        }
+        String ref = getDatasource();
+        if (blank(ref)) {
+            return;
+        }
+        if (type == null) {
+            catalog.typeOf(ref).ifPresent(t -> this.type = t);
+        }
+        if (blank(schema)) {
+            catalog.schemaOf(ref).ifPresent(s -> this.schema = s);
+        }
+    }
+
     public void attachDatasource(String name) {
         if (blank(name)) {
             return;

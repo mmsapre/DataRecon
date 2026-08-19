@@ -119,6 +119,7 @@ public class DatasourceRegistry {
         return new DatasourceApiModel(
                 existing.name(),
                 existing.type(),
+                existing.schema(),
                 existing.tags(),
                 deactivated.createdAt(),
                 deactivated.createdBy(),
@@ -220,10 +221,31 @@ public class DatasourceRegistry {
             }
         }
         if (!creating && catalog.has(name)) {
-            // type may stay the same; re-register tags
+            // type may stay the same; re-register tags/schema
             catalog.unregister(name);
         }
-        catalog.register(name, type, tags);
+        catalog.register(name, type, tags, defaultSchema(request, type));
+    }
+
+    private static String defaultSchema(DatasourceUpsertRequest request, DatasourceType type) {
+        if (request.getSchema() != null && !request.getSchema().isBlank()) {
+            return request.getSchema().trim();
+        }
+        if (type == DatasourceType.postgres) {
+            String url = request.getUrl() != null && !request.getUrl().isBlank()
+                    ? request.getUrl()
+                    : request.getUri();
+            String fromUri = PostgresConnectionFactoryCatalog.schemaFromUrl(url);
+            if (fromUri != null) {
+                return fromUri;
+            }
+        }
+        if (type == DatasourceType.bigquery
+                && request.getDataset() != null
+                && !request.getDataset().isBlank()) {
+            return request.getDataset().trim();
+        }
+        return null;
     }
 
     private static void mergeDatasource(DatasourceUpsertRequest base, DatasourceUpsertRequest patch) {
@@ -233,8 +255,14 @@ public class DatasourceRegistry {
         if (patch.getTags() == null) {
             patch.setTags(base.getTags());
         }
+        if (patch.getSchema() == null) {
+            patch.setSchema(base.getSchema());
+        }
         if (patch.getUrl() == null) {
             patch.setUrl(base.getUrl());
+        }
+        if (patch.getUri() == null) {
+            patch.setUri(base.getUri());
         }
         if (patch.getHost() == null) {
             patch.setHost(base.getHost());
@@ -312,6 +340,7 @@ public class DatasourceRegistry {
         return new DatasourceApiModel(
                 name,
                 type.name(),
+                catalog.schemaOf(name).orElse(null),
                 catalog.tagsOf(name),
                 audit.createdAt(),
                 audit.createdBy(),

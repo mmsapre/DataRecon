@@ -149,6 +149,58 @@ class DomainControllerTest {
         assertEquals(HttpStatus.NO_CONTENT, controller.deleteDomain("account").getStatusCode());
     }
 
+    @Test
+    void sharedDatasourceSchemaIsInheritedByProfiles() {
+        PostgresDatasourceProperties landing = new PostgresDatasourceProperties("landing");
+        landing.setSchema("landing");
+        PostgresDatasourceProperties master = new PostgresDatasourceProperties("master");
+        master.setSchema("master");
+
+        RecConfiguration configuration = new RecConfiguration();
+        DatasourceCatalog catalog = new DatasourceCatalog(
+                List.of(landing, master),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+        DomainController controller = new DomainController(
+                configuration,
+                catalog,
+                new RecCatalogService(configuration, catalog, null)
+        );
+
+        DomainUpsertRequest domain = new DomainUpsertRequest();
+        domain.setId("party");
+        controller.createDomain(domain);
+
+        ProfileUpsertRequest first = profileAttaching("pg-pg-a", "landing", "master");
+        ProfileUpsertRequest second = profileAttaching("pg-pg-b", "landing", "master");
+        controller.createProfile("party", first);
+        controller.createProfile("party", second);
+
+        assertEquals("landing", configuration.requireProfile("party", "pg-pg-a").getSource().getSchema());
+        assertEquals("master", configuration.requireProfile("party", "pg-pg-a").getTarget().getSchema());
+        assertEquals("landing", configuration.requireProfile("party", "pg-pg-b").getSource().getSchema());
+        assertEquals("master", configuration.requireProfile("party", "pg-pg-b").getTarget().getSchema());
+    }
+
+    private static ProfileUpsertRequest profileAttaching(String id, String source, String target) {
+        ProfileUpsertRequest profile = new ProfileUpsertRequest();
+        profile.setId(id);
+        profile.setMigrationKey(MigrationKeySpec.single("party_id"));
+        SideRequest src = new SideRequest();
+        src.setDatasource(source);
+        src.setTable("party");
+        src.setFields(List.of("party_name"));
+        profile.setSource(src);
+        SideRequest tgt = new SideRequest();
+        tgt.setDatasource(target);
+        tgt.setTable("party");
+        tgt.setFields(List.of("party_name"));
+        profile.setTarget(tgt);
+        return profile;
+    }
+
     private static ProfileUpsertRequest reconPolicy() {
         ProfileUpsertRequest request = new ProfileUpsertRequest();
         ReconRunRequest recon = new ReconRunRequest();

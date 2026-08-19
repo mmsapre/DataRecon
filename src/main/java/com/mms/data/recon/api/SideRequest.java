@@ -8,7 +8,9 @@ import java.util.List;
 /**
  * Source or target side of a profile. Datasource is a catalog name
  * ({@code landing}, {@code csv}, …), not a new connection definition.
- * Optional {@code query} is PostgreSQL/BigQuery SQL or a Mongo JSON filter.
+ * Prefer table/{@code fields} mapping, or set {@code query} (plain or conditional SQL /
+ * Mongo JSON filter) with MigrationKey + fields. {@code COUNTS} hashes those fields;
+ * detail modes send the same rows to DuckDB. Schema usually comes from the datasource URI.
  * Optional {@code queryParams} binds positional {@code ?} placeholders.
  */
 public class SideRequest {

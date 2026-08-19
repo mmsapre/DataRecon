@@ -59,6 +59,8 @@ Spring Boot config (env-specific):
 Other pairings (Mongo→Mongo, BigQuery→Mongo, BigQuery→BigQuery) are the same: register named
 datasources via API, then attach them on a profile (`datasources.source` / `datasources.target`).
 
+**Mock request/response for every combination:** [`API-COMBINATIONS.md`](API-COMBINATIONS.md).
+
 ## Setup
 
 You need Java 17, Maven, and a PostgreSQL instance for Data Recon’s **own** result store.
@@ -86,7 +88,7 @@ mms:
   recon:
     database:
       host: ${DATA_RECON_DB_HOST:localhost}
-      port: ${DATA_RECON_DB_PORT:5432}
+      port: ${DATA_RECON_DB_PORT:5436}
       name: ${DATA_RECON_DB_NAME:data_recon}
       username: ${DATA_RECON_DB_USER:postgres}
       password: ${DATA_RECON_DB_PASSWORD:postgres}
@@ -101,7 +103,7 @@ Environment variables:
 | Property | Env | Default |
 |---|---|---|
 | host | `DATA_RECON_DB_HOST` | `localhost` |
-| port | `DATA_RECON_DB_PORT` | `5432` |
+| port | `DATA_RECON_DB_PORT` | `5436` |
 | name | `DATA_RECON_DB_NAME` | `data_recon` |
 | username | `DATA_RECON_DB_USER` | `postgres` |
 | password | `DATA_RECON_DB_PASSWORD` | `postgres` |
@@ -264,7 +266,7 @@ Default origin is `http://localhost:5173`. OPTIONS requests are anonymous; `/api
 
 ```bash
 export DATA_RECON_DB_HOST=localhost
-export DATA_RECON_DB_PORT=5432
+export DATA_RECON_DB_PORT=5436
 export DATA_RECON_DB_NAME=data_recon
 export DATA_RECON_DB_USER=postgres
 export DATA_RECON_DB_PASSWORD=postgres
@@ -384,7 +386,7 @@ previous row inactive. Actor for `created_by` / `updated_by` is `mms.recon.actor
 # 1) Register datasources (or use YAML-seeded names)
 curl -u admin:admin -X POST http://localhost:8080/api/datasources \
   -H 'Content-Type: application/json' \
-  -d '{"name":"landing","type":"postgres","tags":["prod","source"],"host":"localhost","database":"data"}'
+  -d '{"name":"landing","type":"postgres","tags":["prod","source"],"host":"localhost","database":"data","schema":"landing"}'
 
 curl -u admin:admin -X POST http://localhost:8080/api/datasources \
   -H 'Content-Type: application/json' \
@@ -426,9 +428,9 @@ Recon mode is set on the profile (or domain) and can be overridden when triggeri
 
 | Mode | What is stored |
 |---|---|
-| `COUNTS` | Match / mismatch / source-only / target-only counts only |
-| `MISMATCH_DETAILS` | Counts plus per-key rows for mismatches (optional `conditionFields` keep only those mismatches) |
-| `FIELD_DETAILS` | Mismatch details plus which condition fields differed (hashes, not business values) |
+| `COUNTS` | Same field query → in-memory hash compare; counts only (no per-key rows, no DuckDB) |
+| `MISMATCH_DETAILS` | Same field query → DuckDB EXCEPT; counts plus per-key rows for mismatches (optional `conditionFields`) |
+| `FIELD_DETAILS` | Same field query → DuckDB EXCEPT; mismatch details plus which condition fields differed (+ payloads) |
 
 ```bash
 curl -u admin:admin -X PUT http://localhost:8080/api/domains/party/profiles/pg-pg/recon \

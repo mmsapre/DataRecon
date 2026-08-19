@@ -3,6 +3,7 @@ package com.mms.data.recon.api;
 import com.mms.data.recon.config.BigQueryDatasourceProperties;
 import com.mms.data.recon.config.FileDatasourceProperties;
 import com.mms.data.recon.config.MongoDatasourceProperties;
+import com.mms.data.recon.config.PostgresConnectionFactoryCatalog;
 import com.mms.data.recon.config.PostgresDatasourceProperties;
 import com.mms.data.recon.dataset.DatasourceType;
 
@@ -49,10 +50,14 @@ public class DatasourceUpsertRequest {
     private String delimiter;
     private Boolean header;
 
+    /** Default schema/dataset for postgres|bigquery (profiles inherit unless they override). */
+    private String schema;
+
     public PostgresDatasourceProperties toPostgres(String name) {
         PostgresDatasourceProperties props = new PostgresDatasourceProperties(name);
-        if (url != null) {
-            props.setUrl(url);
+        String connectionUrl = firstNonBlank(url, uri);
+        if (connectionUrl != null) {
+            props.setUrl(connectionUrl);
         }
         if (host != null) {
             props.setHost(host);
@@ -72,7 +77,25 @@ public class DatasourceUpsertRequest {
         if (maxSize != null) {
             props.setMaxSize(maxSize);
         }
+        if (schema != null) {
+            props.setSchema(schema);
+        } else if (connectionUrl != null) {
+            String fromUri = PostgresConnectionFactoryCatalog.schemaFromUrl(connectionUrl);
+            if (fromUri != null) {
+                props.setSchema(fromUri);
+            }
+        }
         return props;
+    }
+
+    private static String firstNonBlank(String primary, String fallback) {
+        if (primary != null && !primary.isBlank()) {
+            return primary.trim();
+        }
+        if (fallback != null && !fallback.isBlank()) {
+            return fallback.trim();
+        }
+        return null;
     }
 
     public MongoDatasourceProperties toMongo(String name) {
@@ -108,6 +131,12 @@ public class DatasourceUpsertRequest {
         }
         if (dataset != null) {
             props.setDataset(dataset);
+        }
+        if (schema != null) {
+            props.setSchema(schema);
+            if (dataset == null) {
+                props.setDataset(schema);
+            }
         }
         if (catalog != null) {
             props.setCatalog(catalog);
@@ -221,6 +250,9 @@ public class DatasourceUpsertRequest {
 
     public String getCalciteSchema() { return calciteSchema; }
     public void setCalciteSchema(String calciteSchema) { this.calciteSchema = calciteSchema; }
+
+    public String getSchema() { return schema; }
+    public void setSchema(String schema) { this.schema = schema; }
 
     public String getPath() { return path; }
     public void setPath(String path) { this.path = path; }
