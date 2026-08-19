@@ -1,5 +1,6 @@
 # Local / developer profile (default).
 # App store is PostgreSQL only (results + catalog).
+# Named source/target datasources are registered via API, not YAML.
 mms:
   recon:
     database:
@@ -8,5 +9,3 @@ mms:
       name: data_recon
       username: postgres
       password: postgres
-    postgres:
-      datasources: {}

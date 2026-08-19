@@ -17,14 +17,14 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Named PostgreSQL R2DBC pools used as recon source/target datasources.
- * Seeded from YAML and mutable via the datasources API.
- * Schema may be set explicitly or carried on the connection URI
- * ({@code schema} / {@code currentSchema} / {@code search_path} query params).
+ * Named PostgreSQL R2DBC factories used as business source/target datasources.
+ * Registered via API (or optional YAML seed). Pools are created lazily on
+ * {@link #require(String)} when a recon run executes — not at app start.
  */
 @Component
 public class PostgresConnectionFactoryCatalog {
 
+    private final ConcurrentHashMap<String, PostgresDatasourceProperties> byName = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConnectionPool> pools = new ConcurrentHashMap<>();
 
     public PostgresConnectionFactoryCatalog(PostgresDatasourcesProperties datasources) {
@@ -34,19 +34,24 @@ public class PostgresConnectionFactoryCatalog {
     }
 
     public boolean has(String name) {
-        return name != null && pools.containsKey(name);
+        return name != null && byName.containsKey(name);
     }
 
+    /** Resolve (and lazily pool) a named business Postgres datasource for execution. */
     public ConnectionFactory require(String name) {
-        ConnectionPool pool = pools.get(name);
-        if (pool == null) {
+        PostgresDatasourceProperties properties = byName.get(name);
+        if (properties == null) {
             throw new ConfigurationException("Unknown PostgreSQL datasource: " + name);
         }
-        return pool;
+        return pools.computeIfAbsent(name, ignored -> createPool(properties));
     }
 
     public Map<String, ConnectionFactory> asMap() {
-        return Map.copyOf(pools);
+        Map<String, ConnectionFactory> out = new LinkedHashMap<>();
+        for (String name : byName.keySet()) {
+            out.put(name, require(name));
+        }
+        return Map.copyOf(out);
     }
 
     public synchronized void register(PostgresDatasourceProperties properties) {
@@ -54,22 +59,27 @@ public class PostgresConnectionFactoryCatalog {
             throw new ConfigurationException("PostgreSQL datasource name is required");
         }
         String name = properties.getName();
-        ConnectionFactory factory = createFactory(properties);
-        ConnectionPoolConfiguration poolConfig = ConnectionPoolConfiguration.builder(factory)
-                .maxSize(Math.max(1, properties.getMaxSize()))
-                .build();
-        ConnectionPool connectionPool = new ConnectionPool(poolConfig);
-        ConnectionPool previous = pools.put(name, connectionPool);
+        byName.put(name, properties);
+        ConnectionPool previous = pools.remove(name);
         if (previous != null) {
             previous.dispose();
         }
     }
 
     public synchronized void unregister(String name) {
+        byName.remove(name);
         ConnectionPool removed = pools.remove(name);
         if (removed != null) {
             removed.dispose();
         }
+    }
+
+    private static ConnectionPool createPool(PostgresDatasourceProperties properties) {
+        ConnectionFactory factory = createFactory(properties);
+        ConnectionPoolConfiguration poolConfig = ConnectionPoolConfiguration.builder(factory)
+                .maxSize(Math.max(1, properties.getMaxSize()))
+                .build();
+        return new ConnectionPool(poolConfig);
     }
 
     private static ConnectionFactory createFactory(PostgresDatasourceProperties properties) {
@@ -90,9 +100,6 @@ public class PostgresConnectionFactoryCatalog {
         return new PostgresqlConnectionFactory(builder.build());
     }
 
-    /**
-     * Ensure an R2DBC/JDBC-style URL carries schema when provided separately and not already present.
-     */
     static String withSchemaQueryParam(String url, String schema) {
         if (url == null || url.isBlank() || schema == null || schema.isBlank()) {
             return url;
@@ -104,16 +111,12 @@ public class PostgresConnectionFactoryCatalog {
         return url + sep + "schema=" + schema.trim();
     }
 
-    /**
-     * Read schema from URI query: {@code schema}, {@code currentSchema}, or {@code search_path}.
-     */
     public static String schemaFromUrl(String url) {
         if (url == null || url.isBlank()) {
             return null;
         }
         try {
             String normalized = url;
-            // URI parser expects a scheme; r2dbc:postgresql://... is fine
             int q = normalized.indexOf('?');
             if (q < 0) {
                 return null;
@@ -138,7 +141,6 @@ public class PostgresConnectionFactoryCatalog {
             if (schema == null) {
                 return null;
             }
-            // search_path may be "landing,public" — use the first entry for catalog default
             int comma = schema.indexOf(',');
             return comma < 0 ? schema.trim() : schema.substring(0, comma).trim();
         } catch (RuntimeException e) {
@@ -162,5 +164,6 @@ public class PostgresConnectionFactoryCatalog {
     public void close() {
         pools.values().forEach(ConnectionPool::dispose);
         pools.clear();
+        byName.clear();
     }
 }

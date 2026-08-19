@@ -1,6 +1,3 @@
 # UAT — SPRING_PROFILES_ACTIVE=uat (or PROFILE=uat)
-# App store is PostgreSQL only (application.yml → mms.recon.database).
-mms:
-  recon:
-    postgres:
-      datasources: {}
+# App store: application.yml → mms.recon.database (override with DATA_RECON_DB_* env vars).
+# Named source/target datasources are registered via API, not YAML.

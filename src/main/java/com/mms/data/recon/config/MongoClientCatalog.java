@@ -16,6 +16,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Named Mongo clients used as business source/target datasources.
+ * Registered via API. Clients are created lazily on {@link #database(String)} when a run executes.
+ */
 @Component
 public class MongoClientCatalog {
 

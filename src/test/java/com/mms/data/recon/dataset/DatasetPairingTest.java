@@ -46,7 +46,7 @@ class DatasetPairingTest {
         InMemoryRecStores.MemoryRecRunRepository runs = new InMemoryRecStores.MemoryRecRunRepository();
         InMemoryRecStores.MemoryRecRecordRepository records = new InMemoryRecStores.MemoryRecRecordRepository();
 
-        Long runId = new DatasetRecService(loader, runs, records).reconcile(dataset).block();
+        Long runId = new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler()).reconcile(dataset).block();
 
         assertEquals(1L, runId);
         assertEquals(0, records.inserted.size());

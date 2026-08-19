@@ -8,14 +8,19 @@ import org.springframework.context.annotation.Primary;
 
 import javax.sql.DataSource;
 
+/**
+ * Primary JDBC pool for Data Recon’s own Postgres store ({@code mms.recon.database}):
+ * runs, records, and catalog tables. Business source/target connections are not here —
+ * they live in type-specific registries and are resolved only when a profile executes.
+ */
 @Configuration
 public class ReconJdbcFactory {
 
-    @Bean(destroyMethod = "close")
+    @Bean(name = "reconDataSource", destroyMethod = "close")
     @Primary
-    public DataSource dataSource(ReconDatabaseProperties database) {
+    public DataSource reconDataSource(ReconDatabaseProperties database) {
         HikariConfig config = new HikariConfig();
-        config.setPoolName("mms-recon-results");
+        config.setPoolName("mms-recon-primary");
         config.setJdbcUrl(database.jdbcUrl());
         config.setUsername(database.getUsername());
         config.setPassword(database.getPassword());

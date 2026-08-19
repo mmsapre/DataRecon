@@ -32,11 +32,12 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
-# Shared bootstrap. Data Recon’s own store is PostgreSQL only (mms.recon.database):
+# Shared bootstrap.
+# Primary store (required at start): mms.recon.database → @Primary reconDataSource
 #   - results: rec_run / rec_record
-#   - catalog: rec_datasource / rec_domain / rec_profile (API-managed, versioned)
-# Named source/target connections are also registered via API and stored in that
-# same Postgres catalog — not in this YAML.
+#   - catalog: rec_datasource / rec_domain / rec_profile
+# Business source/target (optional): POST /api/datasources → registry; looked up only when a profile runs
+#   (postgres / mongo / bigquery / file). Not required to boot.
 mms:
   recon:
     auth:

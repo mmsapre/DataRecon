@@ -5,19 +5,26 @@ import jakarta.annotation.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * In-memory registry of business datasources loaded from the recon catalog table at start
+ * (and updated via API). Indexed by <strong>name</strong> and by <strong>schema</strong>
+ * (when present). Profiles attach by either key; lookup returns the canonical datasource name
+ * used by type-specific connection registries at execute time.
+ */
 @Component
 public class DatasourceCatalog {
 
-    private final ConcurrentHashMap<String, DatasourceType> types = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, List<String>> tagsByName = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, String> schemaByName = new ConcurrentHashMap<>();
+    public record Entry(String name, DatasourceType type, String schema, List<String> tags) {}
+
+    private final ConcurrentHashMap<String, Entry> byName = new ConcurrentHashMap<>();
+    /** schema → datasource name (for attach/lookup by schema). */
+    private final ConcurrentHashMap<String, String> nameBySchema = new ConcurrentHashMap<>();
 
     @Autowired
     public DatasourceCatalog(
@@ -39,48 +46,68 @@ public class DatasourceCatalog {
         addAll(files, DatasourceType.file);
     }
 
-    public Optional<DatasourceType> typeOf(String datasourceRef) {
-        if (datasourceRef == null || datasourceRef.isBlank()) {
+    /** Resolve a profile attach ref: datasource name or schema → canonical name. */
+    public Optional<String> resolveName(String ref) {
+        if (ref == null || ref.isBlank()) {
             return Optional.empty();
         }
-        return Optional.ofNullable(types.get(datasourceRef));
+        String key = ref.trim();
+        if (byName.containsKey(key)) {
+            return Optional.of(key);
+        }
+        return Optional.ofNullable(nameBySchema.get(key));
+    }
+
+    public Optional<Entry> entryOf(String ref) {
+        return resolveName(ref).map(byName::get);
+    }
+
+    public Optional<DatasourceType> typeOf(String datasourceRef) {
+        return entryOf(datasourceRef).map(Entry::type);
     }
 
     public boolean has(String datasourceRef) {
-        return typeOf(datasourceRef).isPresent();
+        return resolveName(datasourceRef).isPresent();
     }
 
     public DatasourceType require(String datasourceRef) {
-        return typeOf(datasourceRef).orElseThrow(() -> new ConfigurationException(
-                "Unknown datasourceRef [" + datasourceRef + "]. Known datasources: " + names()
+        return entryOf(datasourceRef)
+                .map(Entry::type)
+                .orElseThrow(() -> new ConfigurationException(
+                        "Unknown datasourceRef [" + datasourceRef + "]. Known names: " + names()
+                                + "; schemas: " + nameBySchema.keySet()
+                ));
+    }
+
+    /** Canonical name for attach/execute; throws if unknown. */
+    public String requireName(String ref) {
+        return resolveName(ref).orElseThrow(() -> new ConfigurationException(
+                "Unknown datasourceRef [" + ref + "]. Known names: " + names()
+                        + "; schemas: " + nameBySchema.keySet()
         ));
     }
 
     public Set<String> names() {
-        return Set.copyOf(types.keySet());
+        return Set.copyOf(byName.keySet());
     }
 
     public Map<String, DatasourceType> asMap() {
-        return Map.copyOf(types);
+        Map<String, DatasourceType> out = new java.util.LinkedHashMap<>();
+        byName.forEach((name, entry) -> out.put(name, entry.type()));
+        return Map.copyOf(out);
+    }
+
+    /** schema → name index (read-only snapshot). */
+    public Map<String, String> schemaIndex() {
+        return Map.copyOf(nameBySchema);
     }
 
     public List<String> tagsOf(String datasourceRef) {
-        return tagsByName.getOrDefault(datasourceRef, List.of());
+        return entryOf(datasourceRef).map(Entry::tags).orElse(List.of());
     }
 
-    /**
-     * Default schema/dataset for a named datasource. Profiles reuse this when their
-     * source/target side does not set {@code schema}.
-     */
     public Optional<String> schemaOf(String datasourceRef) {
-        if (datasourceRef == null || datasourceRef.isBlank()) {
-            return Optional.empty();
-        }
-        String schema = schemaByName.get(datasourceRef);
-        if (schema == null || schema.isBlank()) {
-            return Optional.empty();
-        }
-        return Optional.of(schema);
+        return entryOf(datasourceRef).map(Entry::schema).filter(s -> s != null && !s.isBlank());
     }
 
     public synchronized void register(String name, DatasourceType type, List<String> tags) {
@@ -94,25 +121,39 @@ public class DatasourceCatalog {
         if (type == null) {
             throw new ConfigurationException("Datasource type is required");
         }
-        DatasourceType existing = types.put(name, type);
-        if (existing != null && existing != type) {
-            types.put(name, existing);
+        String trimmedName = name.trim();
+        Entry existing = byName.get(trimmedName);
+        if (existing != null && existing.type() != type) {
             throw new ConfigurationException(
-                    "Datasource [" + name + "] is already registered as " + existing
+                    "Datasource [" + trimmedName + "] is already registered as " + existing.type()
             );
         }
-        tagsByName.put(name, Tags.normalize(tags));
-        if (schema == null || schema.isBlank()) {
-            schemaByName.remove(name);
-        } else {
-            schemaByName.put(name, schema.trim());
+        String trimmedSchema = schema == null || schema.isBlank() ? null : schema.trim();
+        if (trimmedSchema != null) {
+            String owner = nameBySchema.get(trimmedSchema);
+            if (owner != null && !owner.equals(trimmedName)) {
+                throw new ConfigurationException(
+                        "Schema [" + trimmedSchema + "] is already bound to datasource [" + owner + "]"
+                );
+            }
+        }
+        Entry previous = byName.put(trimmedName, new Entry(trimmedName, type, trimmedSchema, Tags.normalize(tags)));
+        if (previous != null && previous.schema() != null && !previous.schema().equals(trimmedSchema)) {
+            nameBySchema.remove(previous.schema(), trimmedName);
+        }
+        if (trimmedSchema != null) {
+            nameBySchema.put(trimmedSchema, trimmedName);
         }
     }
 
     public synchronized void unregister(String name) {
-        types.remove(name);
-        tagsByName.remove(name);
-        schemaByName.remove(name);
+        if (name == null || name.isBlank()) {
+            return;
+        }
+        Entry removed = byName.remove(name.trim());
+        if (removed != null && removed.schema() != null) {
+            nameBySchema.remove(removed.schema(), removed.name());
+        }
     }
 
     private void addAll(List<?> properties, DatasourceType type) {
@@ -120,19 +161,7 @@ public class DatasourceCatalog {
             return;
         }
         for (Object property : properties) {
-            String name = nameOf(property);
-            List<String> tags = tagsOfProperty(property);
-            String schema = schemaOfProperty(property);
-            DatasourceType existing = types.put(name, type);
-            if (existing != null && existing != type) {
-                throw new ConfigurationException(
-                        "Datasource [" + name + "] is configured as both " + existing + " and " + type
-                );
-            }
-            tagsByName.put(name, Tags.normalize(tags));
-            if (schema != null && !schema.isBlank()) {
-                schemaByName.put(name, schema.trim());
-            }
+            register(nameOf(property), type, tagsOfProperty(property), schemaOfProperty(property));
         }
     }
 

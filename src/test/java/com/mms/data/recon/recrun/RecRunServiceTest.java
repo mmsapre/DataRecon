@@ -5,6 +5,7 @@ import com.mms.data.recon.dataset.DataLoadDefinition;
 import com.mms.data.recon.dataset.DatasetConfiguration;
 import com.mms.data.recon.dataset.DatasetRecService;
 import com.mms.data.recon.dataset.DomainConfiguration;
+import com.mms.data.recon.dataset.DuckDbExceptReconciler;
 import com.mms.data.recon.dataset.HashingStrategy;
 import com.mms.data.recon.dataset.InMemoryRecStores;
 import org.junit.jupiter.api.Test;
@@ -28,7 +29,8 @@ class RecRunServiceTest {
                 new DatasetRecService(
                         new InMemoryRecStores.ScriptedRowLoader(),
                         new InMemoryRecStores.MemoryRecRunRepository(),
-                        new InMemoryRecStores.MemoryRecRecordRepository()
+                        new InMemoryRecStores.MemoryRecRecordRepository(),
+                        new DuckDbExceptReconciler()
                 ),
                 new InMemoryRecStores.MemoryRecRunRepository(),
                 new InMemoryRecStores.MemoryRecRecordRepository()
@@ -50,7 +52,8 @@ class RecRunServiceTest {
                         .put("source", List.of(InMemoryRecStores.row("k", "v")))
                         .put("target", List.of(InMemoryRecStores.row("k", "v"))),
                 runs,
-                records
+                records,
+                new DuckDbExceptReconciler()
         );
         RecRunService service = new RecRunService(configuration, recService, runs, records);
 
@@ -78,7 +81,8 @@ class RecRunServiceTest {
                         .put("master", List.of(InMemoryRecStores.row("k", "v")))
                         .put("mongo", List.of(InMemoryRecStores.row("k", "v"))),
                 runs,
-                records
+                records,
+                new DuckDbExceptReconciler()
         );
         RecRunService service = new RecRunService(configuration, recService, runs, records);
 
@@ -110,7 +114,8 @@ class RecRunServiceTest {
                         .put("source", List.of(InMemoryRecStores.row("k", "v")))
                         .put("target", List.of(InMemoryRecStores.row("k", "v"))),
                 runs,
-                records
+                records,
+                new DuckDbExceptReconciler()
         );
         RecRunService service = new RecRunService(configuration, recService, runs, records);
 
@@ -149,7 +154,8 @@ class RecRunServiceTest {
                         .put("source", List.of(InMemoryRecStores.row("k", "v")))
                         .put("target", List.of(InMemoryRecStores.row("k", "v"))),
                 runs,
-                records
+                records,
+                new DuckDbExceptReconciler()
         );
         RecRunService service = new RecRunService(configuration, recService, runs, records);
 
@@ -179,7 +185,8 @@ class RecRunServiceTest {
                 new DatasetRecService(
                         new InMemoryRecStores.ScriptedRowLoader(),
                         new InMemoryRecStores.MemoryRecRunRepository(),
-                        new InMemoryRecStores.MemoryRecRecordRepository()
+                        new InMemoryRecStores.MemoryRecRecordRepository(),
+                        new DuckDbExceptReconciler()
                 ),
                 new InMemoryRecStores.MemoryRecRunRepository(),
                 new InMemoryRecStores.MemoryRecRecordRepository()

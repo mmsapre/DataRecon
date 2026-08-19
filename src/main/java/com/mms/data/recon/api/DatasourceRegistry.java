@@ -26,8 +26,10 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Setup-first catalog for named source/target datasources. Domains and profiles
- * attach these names after they exist here. Updates version the row (previous inactive).
+ * Registry for named business source/target datasources (Postgres, Mongo, BigQuery, file).
+ * Configured via API; persisted in the primary recon DB catalog. Runtime clients/pools are
+ * looked up from type-specific registries only when a profile executes.
+ * Domains and profiles attach these names after they exist here.
  */
 @Component
 public class DatasourceRegistry {

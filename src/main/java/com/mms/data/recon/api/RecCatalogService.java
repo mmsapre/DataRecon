@@ -184,7 +184,7 @@ public class RecCatalogService {
     /** Restore an active domain from the catalog store (no new DB write). */
     public synchronized void hydrateDomain(String domainId, DomainUpsertRequest request, CatalogAudit audit) {
         DomainConfiguration domain = new DomainConfiguration();
-        applyDomain(domain, request, true);
+        applyDomain(domain, request, true, false);
         try {
             domain.initialize(domainId, configuration.getDefaults(), false);
         } catch (RuntimeException e) {
@@ -201,7 +201,7 @@ public class RecCatalogService {
             ProfileUpsertRequest request,
             CatalogAudit audit) {
         DatasetConfiguration profile = new DatasetConfiguration();
-        applyProfile(profile, request, true);
+        applyProfile(profile, request, true, false);
         profile.setAudit(audit == null ? CatalogAudit.create(actor) : audit);
         storeProfile(domainId, profileId, profile);
     }
@@ -273,6 +273,14 @@ public class RecCatalogService {
     }
 
     private void applyDomain(DomainConfiguration domain, DomainUpsertRequest request, boolean creating) {
+        applyDomain(domain, request, creating, true);
+    }
+
+    private void applyDomain(
+            DomainConfiguration domain,
+            DomainUpsertRequest request,
+            boolean creating,
+            boolean requireKnownDatasources) {
         if (request == null) {
             if (creating) {
                 throw badRequest("Domain body is required");
@@ -299,11 +307,23 @@ public class RecCatalogService {
             domain.setTags(request.getTags());
         }
         if (request.getDatasources() != null) {
-            attachNamed(domain, request.getDatasources().getSource(), request.getDatasources().getTarget());
+            attachNamed(
+                    domain,
+                    request.getDatasources().getSource(),
+                    request.getDatasources().getTarget(),
+                    requireKnownDatasources);
         }
     }
 
     private void applyProfile(DatasetConfiguration profile, ProfileUpsertRequest request, boolean creating) {
+        applyProfile(profile, request, creating, true);
+    }
+
+    private void applyProfile(
+            DatasetConfiguration profile,
+            ProfileUpsertRequest request,
+            boolean creating,
+            boolean requireKnownDatasources) {
         if (request == null) {
             if (creating) {
                 throw badRequest("Profile body is required");
@@ -330,20 +350,24 @@ public class RecCatalogService {
         }
         if (request.getSource() != null) {
             ensureSides(profile);
-            if (!blank(request.getSource().getDatasource())) {
+            if (requireKnownDatasources && !blank(request.getSource().getDatasource())) {
                 requireKnownDatasource(request.getSource().getDatasource());
             }
             request.getSource().applyTo(profile.getSource());
         }
         if (request.getTarget() != null) {
             ensureSides(profile);
-            if (!blank(request.getTarget().getDatasource())) {
+            if (requireKnownDatasources && !blank(request.getTarget().getDatasource())) {
                 requireKnownDatasource(request.getTarget().getDatasource());
             }
             request.getTarget().applyTo(profile.getTarget());
         }
         if (request.getDatasources() != null) {
-            attachNamed(profile, request.getDatasources().getSource(), request.getDatasources().getTarget());
+            attachNamed(
+                    profile,
+                    request.getDatasources().getSource(),
+                    request.getDatasources().getTarget(),
+                    requireKnownDatasources);
         }
         if (request.getTags() != null) {
             profile.setTags(request.getTags());
@@ -354,32 +378,61 @@ public class RecCatalogService {
     }
 
     private void attachNamed(DatasetConfiguration profile, String sourceRef, String targetRef) {
+        attachNamed(profile, sourceRef, targetRef, true);
+    }
+
+    private void attachNamed(
+            DatasetConfiguration profile,
+            String sourceRef,
+            String targetRef,
+            boolean requireKnownDatasources) {
         ensureSides(profile);
         ProfileDatasources datasources = profile.getDatasources();
         if (!blank(sourceRef)) {
-            requireKnownDatasource(sourceRef);
-            datasources.setSource(sourceRef);
-            profile.getSource().attachDatasource(sourceRef);
+            String name = requireKnownDatasources ? catalog.requireName(sourceRef) : catalog.resolveName(sourceRef).orElse(sourceRef);
+            datasources.setSource(name);
+            profile.getSource().attachDatasource(name);
+            catalog.schemaOf(name).ifPresent(schema -> {
+                if (blank(profile.getSource().getSchema())) {
+                    profile.getSource().setSchema(schema);
+                }
+            });
         }
         if (!blank(targetRef)) {
-            requireKnownDatasource(targetRef);
-            datasources.setTarget(targetRef);
-            profile.getTarget().attachDatasource(targetRef);
+            String name = requireKnownDatasources ? catalog.requireName(targetRef) : catalog.resolveName(targetRef).orElse(targetRef);
+            datasources.setTarget(name);
+            profile.getTarget().attachDatasource(name);
+            catalog.schemaOf(name).ifPresent(schema -> {
+                if (blank(profile.getTarget().getSchema())) {
+                    profile.getTarget().setSchema(schema);
+                }
+            });
         }
     }
 
-    private void attachNamed(DomainConfiguration domain, String sourceRef, String targetRef) {
+    private void attachNamed(
+            DomainConfiguration domain,
+            String sourceRef,
+            String targetRef) {
+        attachNamed(domain, sourceRef, targetRef, true);
+    }
+
+    private void attachNamed(
+            DomainConfiguration domain,
+            String sourceRef,
+            String targetRef,
+            boolean requireKnownDatasources) {
         if (domain.getDatasources() == null) {
             domain.setDatasources(new ProfileDatasources());
         }
         ProfileDatasources datasources = domain.getDatasources();
         if (!blank(sourceRef)) {
-            requireKnownDatasource(sourceRef);
-            datasources.setSource(sourceRef);
+            String name = requireKnownDatasources ? catalog.requireName(sourceRef) : catalog.resolveName(sourceRef).orElse(sourceRef);
+            datasources.setSource(name);
         }
         if (!blank(targetRef)) {
-            requireKnownDatasource(targetRef);
-            datasources.setTarget(targetRef);
+            String name = requireKnownDatasources ? catalog.requireName(targetRef) : catalog.resolveName(targetRef).orElse(targetRef);
+            datasources.setTarget(name);
         }
     }
 
@@ -455,7 +508,7 @@ public class RecCatalogService {
 
     private void requireKnownDatasource(String name) {
         try {
-            catalog.require(name);
+            catalog.requireName(name);
         } catch (ConfigurationException e) {
             throw badRequest(e.getMessage());
         }

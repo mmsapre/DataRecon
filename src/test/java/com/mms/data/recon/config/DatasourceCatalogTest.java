@@ -1,10 +1,11 @@
 package com.mms.data.recon.config;
 
 import com.mms.data.recon.dataset.DatasourceType;
-import com.mms.data.recon.config.ConfigurationException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -43,5 +44,31 @@ class DatasourceCatalogTest {
     void unknownNameFails() {
         DatasourceCatalog catalog = new DatasourceCatalog(List.of(), List.of(), List.of(), List.of());
         assertThrows(ConfigurationException.class, () -> catalog.require("missing"));
+    }
+
+    @Test
+    void resolvesByNameOrSchemaAndExposesBoth() {
+        PostgresDatasourceProperties landing = new PostgresDatasourceProperties("landing");
+        landing.setSchema("landing_schema");
+        DatasourceCatalog catalog = new DatasourceCatalog(
+                List.of(landing),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+
+        assertEquals("landing", catalog.requireName("landing"));
+        assertEquals("landing", catalog.requireName("landing_schema"));
+        assertEquals(DatasourceType.postgres, catalog.require("landing_schema"));
+        assertEquals(Optional.of("landing_schema"), catalog.schemaOf("landing"));
+        assertEquals(Map.of("landing_schema", "landing"), catalog.schemaIndex());
+    }
+
+    @Test
+    void rejectsSchemaBoundToAnotherName() {
+        DatasourceCatalog catalog = new DatasourceCatalog(List.of(), List.of(), List.of(), List.of());
+        catalog.register("a", DatasourceType.postgres, List.of(), "shared");
+        assertThrows(ConfigurationException.class, () ->
+                catalog.register("b", DatasourceType.postgres, List.of(), "shared"));
     }
 }

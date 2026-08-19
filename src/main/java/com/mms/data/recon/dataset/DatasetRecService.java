@@ -3,6 +3,7 @@ package com.mms.data.recon.dataset;
 import com.mms.data.recon.recrun.FieldDiffs;
 import com.mms.data.recon.recrun.RecRecordRepository;
 import com.mms.data.recon.recrun.RecRunRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -26,22 +27,16 @@ public class DatasetRecService {
     private final RecRecordRepository recordRepository;
     private final DuckDbExceptReconciler duckDbExceptReconciler;
 
-    public DatasetRecService(
-            RowLoader rowLoader,
-            RecRunRepository runRepository,
-            RecRecordRepository recordRepository) {
-        this(rowLoader, runRepository, recordRepository, new DuckDbExceptReconciler());
-    }
-
+    @Autowired
     public DatasetRecService(
             RowLoader rowLoader,
             RecRunRepository runRepository,
             RecRecordRepository recordRepository,
             DuckDbExceptReconciler duckDbExceptReconciler) {
-        this.rowLoader = rowLoader;
-        this.runRepository = runRepository;
-        this.recordRepository = recordRepository;
-        this.duckDbExceptReconciler = duckDbExceptReconciler;
+        this.rowLoader = Objects.requireNonNull(rowLoader, "rowLoader");
+        this.runRepository = Objects.requireNonNull(runRepository, "runRepository");
+        this.recordRepository = Objects.requireNonNull(recordRepository, "recordRepository");
+        this.duckDbExceptReconciler = Objects.requireNonNull(duckDbExceptReconciler, "duckDbExceptReconciler");
     }
 
     public Mono<Long> reconcile(DatasetConfiguration dataset) {

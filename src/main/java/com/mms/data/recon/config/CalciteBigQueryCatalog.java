@@ -13,6 +13,10 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Named BigQuery JDBC/Calcite connections used as business source/target datasources.
+ * Registered via API. Connections open lazily on {@link #connection(String)} when a run executes.
+ */
 @Component
 public class CalciteBigQueryCatalog {
 

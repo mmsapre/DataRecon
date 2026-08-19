@@ -112,11 +112,15 @@ public class DataLoadDefinition {
         if (blank(ref)) {
             return;
         }
+        String name = catalog.resolveName(ref).orElse(ref);
+        if (!name.equals(ref)) {
+            attachDatasource(name);
+        }
         if (type == null) {
-            catalog.typeOf(ref).ifPresent(t -> this.type = t);
+            catalog.typeOf(name).ifPresent(t -> this.type = t);
         }
         if (blank(schema)) {
-            catalog.schemaOf(ref).ifPresent(s -> this.schema = s);
+            catalog.schemaOf(name).ifPresent(s -> this.schema = s);
         }
     }
 

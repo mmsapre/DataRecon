@@ -22,9 +22,9 @@ A Java 17 / Maven / Spring Boot service that reconciles source and target datase
 
 | Role | Store |
 |---|---|
-| **Data Recon’s own DB** (results + catalog) | **PostgreSQL only** (`mms.recon.database`) — `rec_run` / `rec_record`, and versioned `rec_datasource` / `rec_domain` / `rec_profile`. Not Mongo or BigQuery. |
-| Source dataset (business data being compared) | Named datasource: PostgreSQL, MongoDB, BigQuery (Calcite), or CSV/XLSX (Calcite) |
-| Target dataset (business data being compared) | Named datasource: PostgreSQL, MongoDB, BigQuery (Calcite), or CSV/XLSX (Calcite) |
+| **Primary recon DB** | PostgreSQL (`mms.recon.database` → `@Primary` `reconDataSource`): runs, records, catalog. **Required at start.** |
+| **Business datasources** | Loaded from `rec_datasource` into registry at start (name + schema index). Created/updated via API. Connections looked up only when a profile executes. |
+| Source / target on profile | Attach by **name or schema**; registry resolves to the datasource name used at run time |
 
 A **domain** is a business area. Each domain has one or more **profiles**, and each
 profile is one source/target combination. Trigger and results work at domain level
