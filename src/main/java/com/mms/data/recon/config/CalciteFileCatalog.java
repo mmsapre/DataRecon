@@ -3,7 +3,6 @@ package com.mms.data.recon.config;
 import com.mms.data.recon.dataset.CalciteConnections;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PreDestroy;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
@@ -11,16 +10,17 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Named file (CSV/XLSX) Calcite connections for business source/target datasources.
+ * Empty at start; filled from catalog table / API.
+ */
 @Component
 public class CalciteFileCatalog {
 
     private final ConcurrentHashMap<String, FileDatasourceProperties> byName = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Connection> connections = new ConcurrentHashMap<>();
 
-    @Autowired
-    public CalciteFileCatalog(FileDatasourcesProperties properties) {
-        this(properties.asList());
-    }
+    public CalciteFileCatalog() {}
 
     public CalciteFileCatalog(@Nullable List<FileDatasourceProperties> properties) {
         if (properties != null) {

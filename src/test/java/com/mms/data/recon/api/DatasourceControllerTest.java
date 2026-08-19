@@ -9,7 +9,6 @@ import com.mms.data.recon.config.MongoClientCatalog;
 import com.mms.data.recon.config.MongoDatasourceProperties;
 import com.mms.data.recon.config.PostgresConnectionFactoryCatalog;
 import com.mms.data.recon.config.PostgresDatasourceProperties;
-import com.mms.data.recon.config.PostgresDatasourcesProperties;
 import com.mms.data.recon.dataset.DatasourceType;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -71,13 +70,9 @@ class DatasourceControllerTest {
             List<BigQueryDatasourceProperties> bigquery,
             List<FileDatasourceProperties> files) {
         DatasourceCatalog catalog = new DatasourceCatalog(postgres, mongo, bigquery, files);
-        PostgresDatasourcesProperties pgProps = new PostgresDatasourcesProperties();
-        for (PostgresDatasourceProperties item : postgres) {
-            pgProps.getDatasources().put(item.getName(), item);
-        }
         return new DatasourceController(new DatasourceRegistry(
                 catalog,
-                new PostgresConnectionFactoryCatalog(pgProps),
+                new PostgresConnectionFactoryCatalog(postgres),
                 new MongoClientCatalog(mongo),
                 new CalciteBigQueryCatalog(bigquery),
                 new CalciteFileCatalog(files)

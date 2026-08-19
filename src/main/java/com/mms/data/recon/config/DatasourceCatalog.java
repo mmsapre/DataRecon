@@ -2,7 +2,6 @@ package com.mms.data.recon.config;
 
 import com.mms.data.recon.dataset.DatasourceType;
 import jakarta.annotation.Nullable;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -12,10 +11,14 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * In-memory registry of business datasources loaded from the recon catalog table at start
- * (and updated via API). Indexed by <strong>name</strong> and by <strong>schema</strong>
- * (when present). Profiles attach by either key; lookup returns the canonical datasource name
- * used by type-specific connection registries at execute time.
+ * In-memory registry of <strong>business</strong> datasources.
+ * Populated from the recon catalog table ({@code rec_datasource}) at start via
+ * {@code CatalogBootstrap}, and updated via API — not from application YAML.
+ * Indexed by name and by schema. Profiles attach by either key; execute-time
+ * loaders look up the canonical name in type-specific registries.
+ *
+ * <p>Contrast: the primary recon JDBC pool is built from properties only
+ * ({@link ReconJdbcFactory} / {@code mms.recon.database}).
  */
 @Component
 public class DatasourceCatalog {
@@ -26,15 +29,10 @@ public class DatasourceCatalog {
     /** schema → datasource name (for attach/lookup by schema). */
     private final ConcurrentHashMap<String, String> nameBySchema = new ConcurrentHashMap<>();
 
-    @Autowired
-    public DatasourceCatalog(
-            PostgresDatasourcesProperties postgres,
-            MongoDatasourcesProperties mongo,
-            BigQueryDatasourcesProperties bigquery,
-            FileDatasourcesProperties files) {
-        this(postgres.asList(), mongo.asList(), bigquery.asList(), files.asList());
-    }
+    /** Empty at construction; CatalogBootstrap loads rows from tables. */
+    public DatasourceCatalog() {}
 
+    /** Test helper: seed from in-memory property lists (not used at runtime). */
     public DatasourceCatalog(
             @Nullable List<PostgresDatasourceProperties> postgres,
             @Nullable List<MongoDatasourceProperties> mongo,

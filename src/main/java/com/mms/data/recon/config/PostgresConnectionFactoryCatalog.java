@@ -6,20 +6,21 @@ import io.r2dbc.postgresql.PostgresqlConnectionConfiguration;
 import io.r2dbc.postgresql.PostgresqlConnectionFactory;
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
+import jakarta.annotation.Nullable;
 import jakarta.annotation.PreDestroy;
 import org.springframework.stereotype.Component;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Named PostgreSQL R2DBC factories used as business source/target datasources.
- * Registered via API (or optional YAML seed). Pools are created lazily on
- * {@link #require(String)} when a recon run executes — not at app start.
+ * Named PostgreSQL R2DBC factories for business source/target datasources.
+ * Empty at start; filled from catalog table / API. Pools created lazily on {@link #require(String)}.
  */
 @Component
 public class PostgresConnectionFactoryCatalog {
@@ -27,9 +28,14 @@ public class PostgresConnectionFactoryCatalog {
     private final ConcurrentHashMap<String, PostgresDatasourceProperties> byName = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConnectionPool> pools = new ConcurrentHashMap<>();
 
-    public PostgresConnectionFactoryCatalog(PostgresDatasourcesProperties datasources) {
-        for (PostgresDatasourceProperties properties : datasources.asList()) {
-            register(properties);
+    public PostgresConnectionFactoryCatalog() {}
+
+    /** Test helper. */
+    public PostgresConnectionFactoryCatalog(@Nullable List<PostgresDatasourceProperties> properties) {
+        if (properties != null) {
+            for (PostgresDatasourceProperties property : properties) {
+                register(property);
+            }
         }
     }
 
@@ -37,7 +43,6 @@ public class PostgresConnectionFactoryCatalog {
         return name != null && byName.containsKey(name);
     }
 
-    /** Resolve (and lazily pool) a named business Postgres datasource for execution. */
     public ConnectionFactory require(String name) {
         PostgresDatasourceProperties properties = byName.get(name);
         if (properties == null) {

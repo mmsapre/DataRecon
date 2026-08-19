@@ -33,11 +33,10 @@ springdoc:
     path: /swagger-ui.html
 
 # Shared bootstrap.
-# Primary store (required at start): mms.recon.database → @Primary reconDataSource
-#   - results: rec_run / rec_record
-#   - catalog: rec_datasource / rec_domain / rec_profile
-# Business source/target (optional): POST /api/datasources → registry; looked up only when a profile runs
-#   (postgres / mongo / bigquery / file). Not required to boot.
+# Primary recon store (properties only → ReconJdbcFactory / reconDataSource):
+#   mms.recon.database → rec_run / rec_record / catalog tables
+# Business datasources (table only → DatasourceCatalog + type registries):
+#   loaded from rec_datasource at start; created/updated via POST /api/datasources
 mms:
   recon:
     auth:

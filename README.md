@@ -22,9 +22,8 @@ A Java 17 / Maven / Spring Boot service that reconciles source and target datase
 
 | Role | Store |
 |---|---|
-| **Primary recon DB** | PostgreSQL (`mms.recon.database` → `@Primary` `reconDataSource`): runs, records, catalog. **Required at start.** |
-| **Business datasources** | Loaded from `rec_datasource` into registry at start (name + schema index). Created/updated via API. Connections looked up only when a profile executes. |
-| Source / target on profile | Attach by **name or schema**; registry resolves to the datasource name used at run time |
+| **Primary recon DB** | From **properties** (`mms.recon.database` → `ReconJdbcFactory` / `reconDataSource`). Required at start. |
+| **Business datasources** | From **tables** (`rec_datasource` → `DatasourceCatalog` at bootstrap + API). Attach by name/schema; connect lazily on execute. |
 
 A **domain** is a business area. Each domain has one or more **profiles**, and each
 profile is one source/target combination. Trigger and results work at domain level

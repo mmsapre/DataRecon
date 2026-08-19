@@ -5,7 +5,6 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PreDestroy;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
@@ -14,8 +13,8 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Named BigQuery JDBC/Calcite connections used as business source/target datasources.
- * Registered via API. Connections open lazily on {@link #connection(String)} when a run executes.
+ * Named BigQuery JDBC/Calcite connections for business source/target datasources.
+ * Empty at start; filled from catalog table / API. Connections open lazily on {@link #connection(String)}.
  */
 @Component
 public class CalciteBigQueryCatalog {
@@ -24,10 +23,7 @@ public class CalciteBigQueryCatalog {
     private final ConcurrentHashMap<String, HikariDataSource> pools = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Connection> connections = new ConcurrentHashMap<>();
 
-    @Autowired
-    public CalciteBigQueryCatalog(BigQueryDatasourcesProperties properties) {
-        this(properties.asList());
-    }
+    public CalciteBigQueryCatalog() {}
 
     public CalciteBigQueryCatalog(@Nullable List<BigQueryDatasourceProperties> properties) {
         if (properties != null) {

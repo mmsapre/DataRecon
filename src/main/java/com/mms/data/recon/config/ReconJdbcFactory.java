@@ -9,9 +9,12 @@ import org.springframework.context.annotation.Primary;
 import javax.sql.DataSource;
 
 /**
- * Primary JDBC pool for Data Recon’s own Postgres store ({@code mms.recon.database}):
- * runs, records, and catalog tables. Business source/target connections are not here —
- * they live in type-specific registries and are resolved only when a profile executes.
+ * Primary JDBC pool for Data Recon’s own store — built only from
+ * {@link ReconDatabaseProperties} ({@code mms.recon.database} / env).
+ * Does not read the business datasource catalog table.
+ *
+ * <p>Business source/target connections are loaded from {@code rec_datasource}
+ * into {@link DatasourceCatalog} and type registries at bootstrap / via API.
  */
 @Configuration
 public class ReconJdbcFactory {

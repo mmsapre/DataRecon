@@ -8,7 +8,6 @@ import com.mongodb.reactivestreams.client.MongoClients;
 import com.mongodb.reactivestreams.client.MongoDatabase;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PreDestroy;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -17,8 +16,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Named Mongo clients used as business source/target datasources.
- * Registered via API. Clients are created lazily on {@link #database(String)} when a run executes.
+ * Named Mongo clients for business source/target datasources.
+ * Empty at start; filled from catalog table / API. Clients created lazily on {@link #database(String)}.
  */
 @Component
 public class MongoClientCatalog {
@@ -26,10 +25,7 @@ public class MongoClientCatalog {
     private final ConcurrentHashMap<String, MongoDatasourceProperties> byName = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, MongoClient> clients = new ConcurrentHashMap<>();
 
-    @Autowired
-    public MongoClientCatalog(MongoDatasourcesProperties properties) {
-        this(properties.asList());
-    }
+    public MongoClientCatalog() {}
 
     public MongoClientCatalog(@Nullable List<MongoDatasourceProperties> properties) {
         if (properties != null) {

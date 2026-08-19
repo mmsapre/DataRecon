@@ -1,12 +1,8 @@
 package com.mms.data.recon;
 
 import com.mms.data.recon.auth.AuthConfiguration;
-import com.mms.data.recon.config.BigQueryDatasourcesProperties;
 import com.mms.data.recon.config.BuildInfoConfiguration;
-import com.mms.data.recon.config.FileDatasourcesProperties;
 import com.mms.data.recon.config.LlmProperties;
-import com.mms.data.recon.config.MongoDatasourcesProperties;
-import com.mms.data.recon.config.PostgresDatasourcesProperties;
 import com.mms.data.recon.config.RecConfiguration;
 import com.mms.data.recon.config.ReconDatabaseProperties;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
@@ -24,11 +20,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
         BuildInfoConfiguration.class,
         RecConfiguration.class,
         ReconDatabaseProperties.class,
-        LlmProperties.class,
-        PostgresDatasourcesProperties.class,
-        MongoDatasourcesProperties.class,
-        BigQueryDatasourcesProperties.class,
-        FileDatasourcesProperties.class
+        LlmProperties.class
 })
 @OpenAPIDefinition(
         info = @Info(
