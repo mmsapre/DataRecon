@@ -6,7 +6,6 @@ import com.mms.data.recon.config.DatasourceCatalog;
 import com.mms.data.recon.config.RecConfiguration;
 import com.mms.data.recon.dataset.DataLoadDefinition;
 import com.mms.data.recon.dataset.DatasetConfiguration;
-import com.mms.data.recon.dataset.DatasetRecScheduler;
 import com.mms.data.recon.dataset.DomainConfiguration;
 import com.mms.data.recon.dataset.ProfileDatasources;
 import com.mms.data.recon.dataset.ReconSettings;
@@ -16,32 +15,30 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
+
 @Component
 public class RecCatalogService {
 
     private final RecConfiguration configuration;
     private final DatasourceCatalog catalog;
-    private final DatasetRecScheduler scheduler;
     @Nullable
     private final CatalogRepository catalogRepository;
     private final String actor;
 
     public RecCatalogService(
             RecConfiguration configuration,
-            DatasourceCatalog catalog,
-            @Nullable DatasetRecScheduler scheduler) {
-        this(configuration, catalog, scheduler, null);
+            DatasourceCatalog catalog) {
+        this(configuration, catalog, null);
     }
 
     @Autowired
     public RecCatalogService(
             RecConfiguration configuration,
             DatasourceCatalog catalog,
-            @Nullable DatasetRecScheduler scheduler,
             @Nullable CatalogRepository catalogRepository) {
         this.configuration = configuration;
         this.catalog = catalog;
-        this.scheduler = scheduler;
         this.catalogRepository = catalogRepository;
         this.actor = configuration.getActor();
     }
@@ -62,7 +59,6 @@ public class RecCatalogService {
         domain.setAudit(audit);
         configuration.putDomain(id, domain);
         persistDomainInsert(id, domain, audit);
-        sync(domain);
         return domain;
     }
 
@@ -83,7 +79,6 @@ public class RecCatalogService {
                 versionProfile(domainId, entry.getKey(), entry.getValue());
             }
         }
-        sync(domain);
         return domain;
     }
 
@@ -91,7 +86,6 @@ public class RecCatalogService {
         DomainConfiguration domain = requireDomain(domainId);
         CatalogAudit deactivated = auditOf(domain).deactivate(actor);
         domain.setAudit(deactivated);
-        cancel(domainId);
         DomainConfiguration removed = configuration.removeDomain(domainId);
         if (catalogRepository != null) {
             catalogRepository.deactivateDomain(domainId, deactivated);
@@ -112,7 +106,6 @@ public class RecCatalogService {
         profile.setAudit(audit);
         DatasetConfiguration stored = storeProfile(domainId, profileId, profile);
         persistProfileInsert(domainId, profileId, stored, audit);
-        sync(domain);
         return stored;
     }
 
@@ -124,7 +117,6 @@ public class RecCatalogService {
         applyProfile(profile, request, false);
         versionProfile(domainId, profileId, profile);
         DatasetConfiguration stored = storeProfile(domainId, profileId, profile);
-        sync(configuration.requireDomain(domainId));
         return stored;
     }
 
@@ -136,7 +128,6 @@ public class RecCatalogService {
         if (catalogRepository != null) {
             catalogRepository.deactivateProfile(domainId, profileId, deactivated);
         }
-        sync(configuration.requireDomain(domainId));
         return removed;
     }
 
@@ -151,8 +142,35 @@ public class RecCatalogService {
         attachNamed(profile, request.getSource(), request.getTarget());
         versionProfile(domainId, profileId, profile);
         DatasetConfiguration stored = storeProfile(domainId, profileId, profile);
-        sync(configuration.requireDomain(domainId));
         return stored;
+    }
+
+    /** Attach default source/target datasource names on the domain (inherited by profiles). */
+    public synchronized DomainConfiguration attachDomainDatasources(
+            String domainId,
+            AttachDatasourcesRequest request) {
+        if (request == null || (blank(request.getSource()) && blank(request.getTarget()))) {
+            throw badRequest("source and/or target datasource name is required");
+        }
+        DomainConfiguration domain = requireDomain(domainId);
+        attachNamed(domain, request.getSource(), request.getTarget());
+        CatalogAudit previous = auditOf(domain);
+        CatalogAudit deactivated = previous.deactivate(actor);
+        CatalogAudit next = previous.nextVersion(actor);
+        domain.setAudit(next);
+        if (catalogRepository != null) {
+            catalogRepository.deactivateDomain(domainId, deactivated);
+            catalogRepository.insertDomain(domainId, domain.getTags(), CatalogPayloads.fromDomain(domain), next);
+        }
+        for (var entry : List.copyOf(domain.getProfiles().entrySet())) {
+            DatasetConfiguration profile = entry.getValue();
+            if (!inheritDomainDatasources(domain, profile)) {
+                continue;
+            }
+            versionProfile(domainId, entry.getKey(), profile);
+            storeProfile(domainId, entry.getKey(), profile);
+        }
+        return domain;
     }
 
     public synchronized DatasetConfiguration updateSource(String domainId, String profileId, SideRequest request) {
@@ -174,7 +192,6 @@ public class RecCatalogService {
         }
         domain.setAudit(audit == null ? CatalogAudit.create(actor) : audit);
         configuration.putDomain(domainId, domain);
-        sync(domain);
     }
 
     /** Restore an active profile from the catalog store (no new DB write). */
@@ -187,7 +204,6 @@ public class RecCatalogService {
         applyProfile(profile, request, true);
         profile.setAudit(audit == null ? CatalogAudit.create(actor) : audit);
         storeProfile(domainId, profileId, profile);
-        sync(configuration.requireDomain(domainId));
     }
 
     private DatasetConfiguration updateSide(
@@ -206,7 +222,6 @@ public class RecCatalogService {
         request.applyTo(source ? profile.getSource() : profile.getTarget());
         versionProfile(domainId, profileId, profile);
         DatasetConfiguration stored = storeProfile(domainId, profileId, profile);
-        sync(configuration.requireDomain(domainId));
         return stored;
     }
 
@@ -264,10 +279,6 @@ public class RecCatalogService {
             }
             return;
         }
-        validateSchedule(request.getSchedule());
-        if (request.getSchedule() != null) {
-            domain.setSchedule(blank(request.getSchedule()) ? null : request.getSchedule());
-        }
         if (request.getHashingStrategy() != null) {
             domain.setHashingStrategy(request.getHashingStrategy());
         }
@@ -287,6 +298,9 @@ public class RecCatalogService {
         if (request.getTags() != null) {
             domain.setTags(request.getTags());
         }
+        if (request.getDatasources() != null) {
+            attachNamed(domain, request.getDatasources().getSource(), request.getDatasources().getTarget());
+        }
     }
 
     private void applyProfile(DatasetConfiguration profile, ProfileUpsertRequest request, boolean creating) {
@@ -295,10 +309,6 @@ public class RecCatalogService {
                 throw badRequest("Profile body is required");
             }
             return;
-        }
-        validateSchedule(request.getSchedule());
-        if (request.getSchedule() != null) {
-            profile.setSchedule(blank(request.getSchedule()) ? null : request.getSchedule());
         }
         if (request.getHashingStrategy() != null) {
             profile.setHashingStrategy(request.getHashingStrategy());
@@ -358,6 +368,50 @@ public class RecCatalogService {
         }
     }
 
+    private void attachNamed(DomainConfiguration domain, String sourceRef, String targetRef) {
+        if (domain.getDatasources() == null) {
+            domain.setDatasources(new ProfileDatasources());
+        }
+        ProfileDatasources datasources = domain.getDatasources();
+        if (!blank(sourceRef)) {
+            requireKnownDatasource(sourceRef);
+            datasources.setSource(sourceRef);
+        }
+        if (!blank(targetRef)) {
+            requireKnownDatasource(targetRef);
+            datasources.setTarget(targetRef);
+        }
+    }
+
+    private static boolean inheritDomainDatasources(DomainConfiguration domain, DatasetConfiguration profile) {
+        if (domain.getDatasources() == null) {
+            return false;
+        }
+        if (profile.getDatasources() == null) {
+            profile.setDatasources(new ProfileDatasources());
+        }
+        boolean changed = false;
+        if (blank(profile.getDatasources().getSource()) && !blank(domain.getDatasources().getSource())) {
+            profile.getDatasources().setSource(domain.getDatasources().getSource());
+            changed = true;
+        }
+        if (blank(profile.getDatasources().getTarget()) && !blank(domain.getDatasources().getTarget())) {
+            profile.getDatasources().setTarget(domain.getDatasources().getTarget());
+            changed = true;
+        }
+        if (profile.getSource() != null && blank(profile.getSource().getDatasourceRef())
+                && !blank(profile.getDatasources().getSource())) {
+            profile.getSource().attachDatasource(profile.getDatasources().getSource());
+            changed = true;
+        }
+        if (profile.getTarget() != null && blank(profile.getTarget().getDatasourceRef())
+                && !blank(profile.getDatasources().getTarget())) {
+            profile.getTarget().attachDatasource(profile.getDatasources().getTarget());
+            changed = true;
+        }
+        return changed;
+    }
+
     private static void ensureSides(DatasetConfiguration profile) {
         if (profile.getSource() == null) {
             profile.setSource(new DataLoadDefinition());
@@ -407,32 +461,12 @@ public class RecCatalogService {
         }
     }
 
-    private void validateSchedule(String schedule) {
-        if (blank(schedule)) {
-            return;
-        }
-        try {
-            DatasetRecScheduler.parseSeconds(schedule);
-        } catch (RuntimeException e) {
-            throw badRequest("Invalid schedule: " + schedule);
-        }
-    }
 
     private static void applyRecon(ReconSettings settings, ReconRunRequest request) {
         settings.apply(request.getMode(), request.getConditionFields());
     }
 
-    private void sync(DomainConfiguration domain) {
-        if (scheduler != null) {
-            scheduler.syncDomain(domain);
-        }
-    }
 
-    private void cancel(String domainId) {
-        if (scheduler != null) {
-            scheduler.cancelDomain(domainId);
-        }
-    }
 
     private static String requireBodyId(String id, String field) {
         try {

@@ -10,6 +10,8 @@ Named datasources below are only connections used while comparing business data.
 | Auth | HTTP Basic `admin` / `admin` (or `DATA_RECON_USER` / `DATA_RECON_PASSWORD`) |
 | Content-Type | `application/json` |
 
+Runs are **API-triggered only** (`POST .../runs`). There is no in-app schedule/cron field on domain or profile.
+
 Audit fields on datasource / domain / profile responses:
 
 | Field | Meaning |
@@ -232,7 +234,6 @@ POST /api/domains
 ```json
 {
   "id": "party",
-  "schedule": "1h",
   "hashingStrategy": "TypeLenient",
   "tags": ["party"]
 }
@@ -243,7 +244,6 @@ POST /api/domains
 ```json
 {
   "id": "party",
-  "schedule": "1h",
   "hashingStrategy": "TypeLenient",
   "tags": ["party"],
   "profiles": [],
@@ -328,7 +328,17 @@ Authorization: Basic YWRtaW46YWRtaW4=
 
 ---
 
-### Step B — Domain
+### Step B — Domain (datasources attached + hashing strategy)
+
+Datasources attach at **domain** (defaults for all profiles) and/or **profile** (override).
+Set `hashingStrategy` on the domain; profiles inherit unless they set their own.
+
+| `hashingStrategy` | When to use |
+|---|---|
+| `TypeLenient` | Cross-system compare (PG ↔ Mongo ↔ BQ): numbers/bools/timestamps normalized |
+| `TypeStrict` | Same Java types expected on both sides; type is part of the hash |
+
+#### Domain with datasources + `TypeLenient` (default-friendly)
 
 ```http
 POST /api/domains
@@ -339,9 +349,9 @@ POST /api/domains
 ```json
 {
   "id": "party",
-  "schedule": "1h",
   "hashingStrategy": "TypeLenient",
-  "tags": ["party"]
+  "tags": ["party"],
+  "datasources": { "source": "landing", "target": "master" }
 }
 ```
 
@@ -350,9 +360,10 @@ POST /api/domains
 ```json
 {
   "id": "party",
-  "schedule": "1h",
   "hashingStrategy": "TypeLenient",
   "tags": ["party"],
+  "sourceDatasource": "landing",
+  "targetDatasource": "master",
   "profiles": [],
   "createdAt": "2026-08-19T01:01:00Z",
   "createdBy": "data-recon",
@@ -362,6 +373,66 @@ POST /api/domains
   "version": 1
 }
 ```
+
+#### Domain with `TypeStrict`
+
+```json
+{
+  "id": "party-strict",
+  "hashingStrategy": "TypeStrict",
+  "tags": ["party", "strict"],
+  "datasources": { "source": "landing", "target": "master" }
+}
+```
+
+**Response** `201` — `"hashingStrategy": "TypeStrict"`, `"sourceDatasource": "landing"`, `"targetDatasource": "master"`.
+
+#### Attach datasources after domain create
+
+```http
+PUT /api/domains/party/datasources
+```
+
+```json
+{ "source": "landing", "target": "master" }
+```
+
+**Response** `200` — domain with `"sourceDatasource": "landing"`, `"targetDatasource": "master"`, `"version": 2`.
+
+#### Profile inherits domain hashing + datasources
+
+Omit `datasources` / `hashingStrategy` on the profile to inherit from the domain.
+
+```json
+{
+  "id": "pg-pg-inherited",
+  "migrationKey": { "type": "SINGLE", "columns": ["party_id"] },
+  "source": { "table": "party", "fields": ["party_name", "status"] },
+  "target": { "table": "party", "fields": ["party_name", "status"] },
+  "recon": { "mode": "COUNTS" }
+}
+```
+
+**Response** — `"hashingStrategy": "TypeLenient"` (from domain), `"sourceDatasource": "landing"`, `"targetDatasource": "master"`.
+
+#### Profile overrides hashing to `TypeStrict`
+
+```json
+{
+  "id": "pg-pg-strict",
+  "hashingStrategy": "TypeStrict",
+  "datasources": { "source": "landing", "target": "master" },
+  "migrationKey": { "type": "SINGLE", "columns": ["party_id"] },
+  "source": { "table": "party", "fields": ["party_name", "status"] },
+  "target": { "table": "party", "fields": ["party_name", "status"] },
+  "recon": { "mode": "FIELD_DETAILS", "conditionFields": ["party_name", "status"] }
+}
+```
+
+**Response** — `"hashingStrategy": "TypeStrict"` (profile override).
+
+Profiles omit `datasources` to inherit, or set their own / call
+`PUT /api/domains/party/profiles/{profileId}/datasources`.
 
 ---
 
@@ -405,7 +476,6 @@ POST /api/domains/party/profiles
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "COUNTS",
   "conditionFields": [],
   "tags": ["counts"],
@@ -550,7 +620,6 @@ Example: active rows, non-null status, open-ended membership
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "COUNTS",
   "conditionFields": [],
   "tags": ["counts", "conditional"],
@@ -663,7 +732,6 @@ GET /api/domains/party
 ```json
 {
   "id": "party",
-  "schedule": "1h",
   "hashingStrategy": "TypeLenient",
   "tags": ["party"],
   "profiles": [
@@ -795,7 +863,6 @@ Schema comes from the shared datasources (`landing` / `master`); the profile onl
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "FIELD_DETAILS",
   "conditionFields": ["party_name", "status"],
   "tags": ["pg-pg"],
@@ -847,7 +914,6 @@ Schema comes from the shared datasources (`landing` / `master`); the profile onl
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "MISMATCH_DETAILS",
   "conditionFields": [],
   "tags": [],
@@ -903,7 +969,6 @@ Schema comes from the shared datasources (`landing` / `master`); the profile onl
   "migrationKeyType": "COMPOSITE",
   "migrationKeyColumns": ["party_id", "country_code"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "COUNTS",
   "conditionFields": [],
   "tags": [],
@@ -954,7 +1019,6 @@ Schema comes from the shared datasources (`landing` / `master`); the profile onl
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "FIELD_DETAILS",
   "conditionFields": ["party_name", "status"],
   "tags": [],
@@ -1005,7 +1069,6 @@ Schema comes from the shared datasources (`landing` / `master`); the profile onl
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "MISMATCH_DETAILS",
   "conditionFields": [],
   "tags": [],
@@ -1051,7 +1114,6 @@ Register a second mongo datasource (e.g. `mongo-tgt`) the same way as §0.3, the
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "COUNTS",
   "conditionFields": [],
   "tags": [],
@@ -1103,7 +1165,6 @@ Register a second mongo datasource (e.g. `mongo-tgt`) the same way as §0.3, the
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "FIELD_DETAILS",
   "conditionFields": ["party_name", "status"],
   "tags": [],
@@ -1155,7 +1216,6 @@ Register a second mongo datasource (e.g. `mongo-tgt`) the same way as §0.3, the
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "MISMATCH_DETAILS",
   "conditionFields": [],
   "tags": [],
@@ -1203,7 +1263,6 @@ Register a second mongo datasource (e.g. `mongo-tgt`) the same way as §0.3, the
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "COUNTS",
   "conditionFields": [],
   "tags": [],
@@ -1251,7 +1310,6 @@ Register a second mongo datasource (e.g. `mongo-tgt`) the same way as §0.3, the
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "FIELD_DETAILS",
   "conditionFields": ["party_name"],
   "tags": [],
@@ -1305,7 +1363,6 @@ Register `bq-tgt` like §0.4, then:
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "MISMATCH_DETAILS",
   "conditionFields": [],
   "tags": [],
@@ -1356,7 +1413,6 @@ Register `bq-tgt` like §0.4, then:
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "FIELD_DETAILS",
   "conditionFields": ["party_name", "status"],
   "tags": [],
@@ -1407,7 +1463,6 @@ Register `bq-tgt` like §0.4, then:
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "MISMATCH_DETAILS",
   "conditionFields": [],
   "tags": [],
@@ -1451,7 +1506,6 @@ Register `bq-tgt` like §0.4, then:
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "COUNTS",
   "conditionFields": [],
   "tags": [],
@@ -1499,7 +1553,6 @@ Register `bq-tgt` like §0.4, then:
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "MISMATCH_DETAILS",
   "conditionFields": [],
   "tags": [],
@@ -1547,7 +1600,6 @@ Register `bq-tgt` like §0.4, then:
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "FIELD_DETAILS",
   "conditionFields": ["party_name", "status"],
   "tags": [],
@@ -1591,7 +1643,6 @@ Register `bq-tgt` like §0.4, then:
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "COUNTS",
   "conditionFields": [],
   "tags": [],
@@ -1639,7 +1690,6 @@ Register `bq-tgt` like §0.4, then:
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "MISMATCH_DETAILS",
   "conditionFields": [],
   "tags": [],
@@ -1685,7 +1735,6 @@ Register `csv-tgt` like §0.5 with a different `pattern`, then:
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "FIELD_DETAILS",
   "conditionFields": ["party_name", "status"],
   "tags": [],
@@ -1733,7 +1782,6 @@ Register `csv-tgt` like §0.5 with a different `pattern`, then:
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "MISMATCH_DETAILS",
   "conditionFields": [],
   "tags": [],
@@ -1898,7 +1946,6 @@ PUT /api/domains/party/profiles/pg-pg
   "migrationKeyType": "SINGLE",
   "migrationKeyColumns": ["party_id"],
   "hashingStrategy": "TypeLenient",
-  "schedule": null,
   "reconMode": "COUNTS",
   "conditionFields": [],
   "tags": ["pg-pg"],

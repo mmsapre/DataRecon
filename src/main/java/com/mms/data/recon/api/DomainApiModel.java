@@ -5,9 +5,10 @@ import java.util.List;
 
 public record DomainApiModel(
         String id,
-        String schedule,
         String hashingStrategy,
         List<String> tags,
+        String sourceDatasource,
+        String targetDatasource,
         List<ProfileApiModel> profiles,
         Instant createdAt,
         String createdBy,

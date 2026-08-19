@@ -16,13 +16,14 @@ public class DomainConfiguration {
 
     private transient String id;
 
-    private String schedule;
     private Integer batchSize;
     private Integer batchConcurrency;
     private HashingStrategy hashingStrategy;
     private Path queryFileBaseDir;
     private ReconSettings recon = new ReconSettings();
     private java.util.List<String> tags = java.util.List.of();
+    /** Default source/target datasource names inherited by profiles unless overridden. */
+    private ProfileDatasources datasources = new ProfileDatasources();
     private Map<String, DatasetConfiguration> profiles = new LinkedHashMap<>();
     private transient com.mms.data.recon.config.CatalogAudit audit;
 
@@ -74,9 +75,6 @@ public class DomainConfiguration {
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
-    public String getSchedule() { return schedule; }
-    public void setSchedule(String schedule) { this.schedule = schedule; }
-
     public Integer getBatchSize() { return batchSize; }
     public void setBatchSize(Integer batchSize) { this.batchSize = batchSize; }
 
@@ -97,6 +95,11 @@ public class DomainConfiguration {
     public java.util.List<String> getTags() { return tags; }
     public void setTags(java.util.List<String> tags) {
         this.tags = com.mms.data.recon.config.Tags.copy(tags);
+    }
+
+    public ProfileDatasources getDatasources() { return datasources; }
+    public void setDatasources(ProfileDatasources datasources) {
+        this.datasources = datasources == null ? new ProfileDatasources() : datasources;
     }
 
     public com.mms.data.recon.config.CatalogAudit getAudit() { return audit; }

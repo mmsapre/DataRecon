@@ -15,7 +15,6 @@ final class CatalogPayloads {
     static DomainUpsertRequest fromDomain(DomainConfiguration domain) {
         DomainUpsertRequest request = new DomainUpsertRequest();
         request.setId(domain.getId());
-        request.setSchedule(domain.getSchedule());
         request.setHashingStrategy(domain.getHashingStrategy());
         request.setBatchSize(domain.getBatchSize());
         request.setBatchConcurrency(domain.getBatchConcurrency());
@@ -26,13 +25,18 @@ final class CatalogPayloads {
             request.setRecon(recon);
         }
         request.setTags(domain.getTags());
+        if (domain.getDatasources() != null) {
+            ProfileDatasources refs = new ProfileDatasources();
+            refs.setSource(domain.getDatasources().getSource());
+            refs.setTarget(domain.getDatasources().getTarget());
+            request.setDatasources(refs);
+        }
         return request;
     }
 
     static ProfileUpsertRequest fromProfile(DatasetConfiguration profile) {
         ProfileUpsertRequest request = new ProfileUpsertRequest();
         request.setId(profile.getProfileId());
-        request.setSchedule(profile.getSchedule());
         request.setHashingStrategy(profile.getHashingStrategy());
         request.setBatchSize(profile.getBatchSize());
         request.setBatchConcurrency(profile.getBatchConcurrency());

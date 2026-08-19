@@ -22,7 +22,8 @@ import java.net.URI;
 import java.util.List;
 
 /**
- * Steps 2–3 of setup: create domains, then profiles that attach already-registered datasources.
+ * Steps 2–3 of setup: create domains (optionally attach default datasources),
+ * then profiles that attach or inherit those named datasources.
  * Optional tags group domains/profiles for listing.
  */
 @Tag(name = "Domains")
@@ -72,6 +73,15 @@ public class DomainController {
     public ResponseEntity<Void> deleteDomain(@PathVariable String domainId) {
         catalog.deleteDomain(domainId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/domains/{domainId}/datasources")
+    @Operation(summary = "Attach default datasources to a domain",
+            description = "Profiles inherit these source/target names unless they override them")
+    public DomainApiModel attachDomainDatasources(
+            @PathVariable String domainId,
+            @RequestBody AttachDatasourcesRequest request) {
+        return domain(catalog.attachDomainDatasources(domainId, request));
     }
 
     @GetMapping("/domains/{domainId}/profiles")
@@ -139,11 +149,13 @@ public class DomainController {
 
     private DomainApiModel domain(DomainConfiguration domain) {
         var audit = domain.getAudit();
+        var ds = domain.getDatasources();
         return new DomainApiModel(
                 domain.getId(),
-                domain.getSchedule(),
                 domain.getHashingStrategy() == null ? null : domain.getHashingStrategy().name(),
                 domain.getTags() == null ? List.of() : domain.getTags(),
+                ds == null ? null : ds.getSource(),
+                ds == null ? null : ds.getTarget(),
                 domain.getProfiles().values().stream().map(this::profile).toList(),
                 audit == null ? null : audit.createdAt(),
                 audit == null ? null : audit.createdBy(),
@@ -170,7 +182,6 @@ public class DomainController {
                 key == null ? null : key.getType().name(),
                 key == null ? List.of() : key.getColumns(),
                 profile.getHashingStrategy() == null ? null : profile.getHashingStrategy().name(),
-                profile.getSchedule(),
                 profile.resolvedRecon().resolvedMode().name(),
                 profile.resolvedRecon().resolvedConditionFields(),
                 profile.getTags() == null ? List.of() : profile.getTags(),

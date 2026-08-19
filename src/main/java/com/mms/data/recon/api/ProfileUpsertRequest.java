@@ -9,7 +9,6 @@ import java.util.List;
 public class ProfileUpsertRequest {
 
     private String id;
-    private String schedule;
     private HashingStrategy hashingStrategy;
     private Integer batchSize;
     private Integer batchConcurrency;
@@ -22,9 +21,6 @@ public class ProfileUpsertRequest {
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
-
-    public String getSchedule() { return schedule; }
-    public void setSchedule(String schedule) { this.schedule = schedule; }
 
     public HashingStrategy getHashingStrategy() { return hashingStrategy; }
     public void setHashingStrategy(HashingStrategy hashingStrategy) { this.hashingStrategy = hashingStrategy; }

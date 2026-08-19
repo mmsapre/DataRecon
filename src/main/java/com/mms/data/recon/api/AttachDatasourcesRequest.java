@@ -1,7 +1,7 @@
 package com.mms.data.recon.api;
 
 /**
- * Named catalog datasources to attach to a profile's source and/or target.
+ * Named catalog datasources to attach to a domain (defaults) or a profile's source/target.
  */
 public class AttachDatasourcesRequest {
 

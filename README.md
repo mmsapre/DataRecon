@@ -14,7 +14,7 @@ A Java 17 / Maven / Spring Boot service that reconciles source and target datase
 - Flyway schema
 - Basic authentication
 - REST APIs and Swagger UI (`/swagger-ui.html`)
-- Domain and profile scheduling
+- Domain and profile **API trigger** (no in-app schedule)
 - Inline or file-based SQL / Mongo JSON filters
 - Optional LLM summaries of run results (OpenAI-compatible API; requires URL and API key)
 
@@ -155,33 +155,66 @@ db.party.insertOne({
 
 Catalog entries (including **tags**) are **not** seeded from YAML. After the server is up:
 
-1. `POST /api/datasources` — postgres / mongo / bigquery (+ optional `tags`)
-2. `POST /api/domains` — domain (+ optional `tags`)
-3. `POST /api/domains/{domainId}/profiles` — profile attaching named datasources (+ optional `tags`)
+1. `POST /api/datasources` — named connections (postgres / mongo / bigquery / file; optional `tags`, URI may include `schema`)
+2. `POST /api/domains` — domain with optional **default datasources** + `hashingStrategy` + tags  
+   - or later: `PUT /api/domains/{domainId}/datasources`
+3. `POST /api/domains/{domainId}/profiles` — profile inherits domain datasources/hashing unless it overrides  
+   - or: `PUT /api/domains/{domainId}/profiles/{profileId}/datasources`
 
-List with `?tag=...` on each resource. The UI Setup page uses the same APIs.
+List with `?tag=...` on each resource. Full request/response samples:
+[`API-COMBINATIONS.md`](API-COMBINATIONS.md).
 
 ### 5. Example API bodies
 
-Datasource:
+Datasource (URI with schema):
 
 ```json
 {
   "name": "landing",
   "type": "postgres",
   "tags": ["party", "prod"],
-  "host": "localhost",
-  "port": 5432,
-  "database": "data",
+  "uri": "r2dbc:postgresql://localhost:5432/data?schema=landing",
   "username": "postgres",
   "password": "postgres"
 }
 ```
 
-Domain + profile (after datasources exist): see [APIs](#apis) curl examples below.
+Domain with datasources attached + hashing:
+
+```json
+{
+  "id": "party",
+  "hashingStrategy": "TypeLenient",
+  "tags": ["party"],
+  "datasources": { "source": "landing", "target": "master" }
+}
+```
+
+`hashingStrategy` (domain default; profile may override):
+
+| Value | Behavior |
+|---|---|
+| `TypeLenient` | Numbers normalized (trailing zeros stripped); booleans as `1`/`0`; timestamps as Instant — good across type-mismatched systems |
+| `TypeStrict` | Includes Java runtime type in the hash (`java.lang.Integer:1` vs `java.lang.Long:1`) — stricter equality |
 
 `migrationKey.type`: `SINGLE` | `COMPOSITE` | `DEFINED`  
 `recon.mode`: `COUNTS` | `MISMATCH_DETAILS` | `FIELD_DETAILS`
+
+Attach or change domain datasources later:
+
+```http
+PUT /api/domains/party/datasources
+{ "source": "landing", "target": "master" }
+```
+
+Attach or override on a profile:
+
+```http
+PUT /api/domains/party/profiles/pg-pg/datasources
+{ "source": "landing", "target": "master" }
+```
+
+Domain + profile (after datasources exist): see [APIs](#apis) curl examples and [`API-COMBINATIONS.md`](API-COMBINATIONS.md).
 
 When table/column mapping is not enough (joins, filters, expressions), set **`query`** on
 source and/or target. It is optional; when present it wins over generated SQL from
@@ -236,8 +269,7 @@ and recon options are saved on that run (`source_query`, `target_query`, `recon_
 `condition_fields`) so GET `/api/runs` shows what was compared. Record rows stay hashes
 only, never business values.
 
-Optional domain `schedule` triggers every profile on an interval. Optional profile
-`schedule` triggers that pairing only.
+Runs are **API-triggered only** (`POST .../runs`). This service does not maintain cron/interval schedules.
 
 ### 6. Auth and defaults
 
@@ -395,7 +427,7 @@ curl -u admin:admin -X POST http://localhost:8080/api/datasources \
 # 2) Domain
 curl -u admin:admin -X POST http://localhost:8080/api/domains \
   -H 'Content-Type: application/json' \
-  -d '{"id":"party","schedule":"1h","tags":["party"]}'
+  -d '{"id":"party","hashingStrategy":"TypeLenient","tags":["party"],"datasources":{"source":"landing","target":"master"}}'
 
 # 3) Profile attaching those datasources
 curl -u admin:admin -X POST http://localhost:8080/api/domains/party/profiles \
@@ -605,11 +637,9 @@ mms:
   recon:
     domains:
       party:
-        # schedule: 1h          # optional: trigger every profile on an interval
         hashingStrategy: TypeLenient
         profiles:
           pg-mongo:
-            # schedule: 15m     # optional: trigger this pairing only
             datasources:
               source: landing
               target: mongo

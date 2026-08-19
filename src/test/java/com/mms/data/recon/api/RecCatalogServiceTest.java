@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -30,7 +29,6 @@ class RecCatalogServiceTest {
 
         DomainUpsertRequest domainRequest = new DomainUpsertRequest();
         domainRequest.setId("party");
-        domainRequest.setSchedule("1h");
         domainRequest.setHashingStrategy(HashingStrategy.TypeStrict);
         ReconRunRequest domainRecon = new ReconRunRequest();
         domainRecon.setMode(ReconMode.COUNTS);
@@ -105,7 +103,7 @@ class RecCatalogServiceTest {
     void unknownDomainOrProfileIsNotFound() {
         RecCatalogService catalog = catalog();
         DomainUpsertRequest update = new DomainUpsertRequest();
-        update.setSchedule("60s");
+        update.setHashingStrategy(HashingStrategy.TypeLenient);
         ResponseStatusException missingDomain = assertThrows(
                 ResponseStatusException.class,
                 () -> catalog.updateDomain("party", update)
@@ -157,7 +155,6 @@ class RecCatalogServiceTest {
                         List.of(new FileDatasourceProperties("csv"))
                 )
         ));
-        assertNull(stored.getSchedule());
     }
 
     private static RecCatalogService catalog() {
@@ -167,6 +164,6 @@ class RecCatalogServiceTest {
                 List.of(new BigQueryDatasourceProperties("bq")),
                 List.of(new FileDatasourceProperties("csv"))
         );
-        return new RecCatalogService(new RecConfiguration(), datasources, null);
+        return new RecCatalogService(new RecConfiguration(), datasources);
     }
 }

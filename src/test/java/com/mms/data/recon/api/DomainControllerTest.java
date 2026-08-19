@@ -10,6 +10,7 @@ import com.mms.data.recon.dataset.DatasourceType;
 import com.mms.data.recon.dataset.DomainConfiguration;
 import com.mms.data.recon.dataset.HashingStrategy;
 import com.mms.data.recon.dataset.MigrationKeySpec;
+import com.mms.data.recon.dataset.ProfileDatasources;
 import com.mms.data.recon.dataset.ReconMode;
 import org.springframework.http.HttpStatus;
 import org.junit.jupiter.api.Test;
@@ -34,11 +35,9 @@ class DomainControllerTest {
         profile.setSource(source);
         profile.setTarget(target);
         profile.setHashingStrategy(HashingStrategy.TypeLenient);
-        profile.setSchedule("60s");
         profile.setMigrationKey("party_id");
 
         DomainConfiguration domain = new DomainConfiguration();
-        domain.setSchedule("1h");
         Map<String, DatasetConfiguration> profiles = new LinkedHashMap<>();
         profiles.put("pg-bigquery", profile);
         domain.setProfiles(profiles);
@@ -57,13 +56,12 @@ class DomainControllerTest {
         DomainController controller = new DomainController(
                 configuration,
                 catalog,
-                new RecCatalogService(configuration, catalog, null)
+                new RecCatalogService(configuration, catalog)
         );
 
         List<DomainApiModel> models = controller.listDomains(null);
         assertEquals(1, models.size());
         assertEquals("party", models.get(0).id());
-        assertEquals("1h", models.get(0).schedule());
         assertEquals(1, models.get(0).profiles().size());
         assertEquals(List.of(), models.get(0).tags());
 
@@ -76,7 +74,6 @@ class DomainControllerTest {
         assertEquals("bq", listed.targetDatasource());
         assertEquals("bigquery", listed.targetType());
         assertEquals("TypeLenient", listed.hashingStrategy());
-        assertEquals("60s", listed.schedule());
         assertEquals("SINGLE", listed.migrationKeyType());
         assertEquals(List.of("party_id"), listed.migrationKeyColumns());
         assertEquals("MISMATCH_DETAILS", listed.reconMode());
@@ -96,19 +93,17 @@ class DomainControllerTest {
         DomainController controller = new DomainController(
                 configuration,
                 catalog,
-                new RecCatalogService(configuration, catalog, null)
+                new RecCatalogService(configuration, catalog)
         );
 
         DomainUpsertRequest domain = new DomainUpsertRequest();
         domain.setId("account");
-        domain.setSchedule("30m");
         domain.setTags(List.of("finance"));
         DomainApiModel createdDomain = controller.createDomain(domain).getBody();
         assertEquals("account", createdDomain.id());
         assertEquals("data-recon", createdDomain.createdBy());
         assertEquals(1, createdDomain.version());
         assertEquals(true, createdDomain.active());
-        assertEquals("30m", controller.getDomain("account").schedule());
         assertEquals(List.of("finance"), controller.getDomain("account").tags());
 
         ProfileUpsertRequest profile = new ProfileUpsertRequest();
@@ -150,6 +145,55 @@ class DomainControllerTest {
     }
 
     @Test
+    void domainDatasourcesAreInheritedByProfiles() {
+        PostgresDatasourceProperties landing = new PostgresDatasourceProperties("landing");
+        landing.setSchema("landing");
+        PostgresDatasourceProperties master = new PostgresDatasourceProperties("master");
+        master.setSchema("master");
+
+        RecConfiguration configuration = new RecConfiguration();
+        DatasourceCatalog catalog = new DatasourceCatalog(
+                List.of(landing, master),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+        DomainController controller = new DomainController(
+                configuration,
+                catalog,
+                new RecCatalogService(configuration, catalog)
+        );
+
+        DomainUpsertRequest domain = new DomainUpsertRequest();
+        domain.setId("party");
+        ProfileDatasources domainDs = new ProfileDatasources();
+        domainDs.setSource("landing");
+        domainDs.setTarget("master");
+        domain.setDatasources(domainDs);
+        DomainApiModel createdDomain = controller.createDomain(domain).getBody();
+        assertEquals("landing", createdDomain.sourceDatasource());
+        assertEquals("master", createdDomain.targetDatasource());
+
+        ProfileUpsertRequest profile = new ProfileUpsertRequest();
+        profile.setId("pg-pg-inherited");
+        profile.setMigrationKey(MigrationKeySpec.single("party_id"));
+        SideRequest src = new SideRequest();
+        src.setTable("party");
+        src.setFields(List.of("party_name"));
+        profile.setSource(src);
+        SideRequest tgt = new SideRequest();
+        tgt.setTable("party");
+        tgt.setFields(List.of("party_name"));
+        profile.setTarget(tgt);
+
+        ProfileApiModel created = controller.createProfile("party", profile).getBody();
+        assertEquals("landing", created.sourceDatasource());
+        assertEquals("master", created.targetDatasource());
+        assertEquals("postgres", created.sourceType());
+        assertEquals("postgres", created.targetType());
+    }
+
+    @Test
     void sharedDatasourceSchemaIsInheritedByProfiles() {
         PostgresDatasourceProperties landing = new PostgresDatasourceProperties("landing");
         landing.setSchema("landing");
@@ -166,7 +210,7 @@ class DomainControllerTest {
         DomainController controller = new DomainController(
                 configuration,
                 catalog,
-                new RecCatalogService(configuration, catalog, null)
+                new RecCatalogService(configuration, catalog)
         );
 
         DomainUpsertRequest domain = new DomainUpsertRequest();

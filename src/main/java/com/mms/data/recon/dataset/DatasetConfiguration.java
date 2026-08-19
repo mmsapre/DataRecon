@@ -20,7 +20,6 @@ public class DatasetConfiguration {
     private Integer batchConcurrency;
     private HashingStrategy hashingStrategy;
     private Path queryFileBaseDir;
-    private String schedule;
     private java.util.List<String> tags = java.util.List.of();
     private transient com.mms.data.recon.config.CatalogAudit audit;
 
@@ -69,7 +68,22 @@ public class DatasetConfiguration {
                 && !domain.getRecon().getConditionFields().isEmpty()) {
             recon.setConditionFields(domain.getRecon().getConditionFields());
         }
+        if (domain != null && domain.getDatasources() != null) {
+            if (datasources == null) {
+                datasources = new ProfileDatasources();
+            }
+            if (blank(datasources.getSource()) && !blank(domain.getDatasources().getSource())) {
+                datasources.setSource(domain.getDatasources().getSource());
+            }
+            if (blank(datasources.getTarget()) && !blank(domain.getDatasources().getTarget())) {
+                datasources.setTarget(domain.getDatasources().getTarget());
+            }
+        }
         recon.normalize();
+    }
+
+    private static boolean blank(String value) {
+        return value == null || value.isBlank();
     }
 
     public void initialize() {
@@ -175,9 +189,6 @@ public class DatasetConfiguration {
 
     public Path getQueryFileBaseDir() { return queryFileBaseDir; }
     public void setQueryFileBaseDir(Path queryFileBaseDir) { this.queryFileBaseDir = queryFileBaseDir; }
-
-    public String getSchedule() { return schedule; }
-    public void setSchedule(String schedule) { this.schedule = schedule; }
 
     public java.util.List<String> getTags() { return tags; }
     public void setTags(java.util.List<String> tags) {
