@@ -42,6 +42,7 @@ public class RecRecordRepository {
         try (Connection c = dataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
 
+            int queued = 0;
             for (RecRecord r : records) {
                 ps.setLong(1, runId);
                 ps.setString(2, r.migrationKey());
@@ -53,8 +54,14 @@ public class RecRecordRepository {
                 ps.setString(8, r.targetPayload());
                 ps.setString(9, createdBy);
                 ps.addBatch();
+                if (++queued >= 1000) {
+                    ps.executeBatch();
+                    queued = 0;
+                }
             }
-            ps.executeBatch();
+            if (queued > 0) {
+                ps.executeBatch();
+            }
         } catch (SQLException e) {
             throw new IllegalStateException("Unable to persist reconciliation records", e);
         }

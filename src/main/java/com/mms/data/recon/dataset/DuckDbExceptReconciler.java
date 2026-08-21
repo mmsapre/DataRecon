@@ -4,13 +4,15 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mms.data.recon.recrun.RecRecordRepository;
 import com.mms.data.recon.recrun.RecRunRepository;
+import org.duckdb.DuckDBAppender;
+import org.duckdb.DuckDBConnection;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -21,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Streams source/target rows into DuckDB and compares with {@code EXCEPT ALL}
@@ -31,6 +34,7 @@ import java.util.Set;
 public class DuckDbExceptReconciler {
 
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final int APPEND_FLUSH_EVERY = 50_000;
 
     private final Path snapshotRoot;
 
@@ -42,10 +46,30 @@ public class DuckDbExceptReconciler {
         this.snapshotRoot = snapshotRoot;
     }
 
+    /** Test / in-memory helper — loads lists via the streaming path. */
     public Result compare(
             DatasetConfiguration dataset,
             List<DataLoadDefinition.RawRow> sourceRows,
             List<DataLoadDefinition.RawRow> targetRows,
+            ReconSettings settings,
+            RunScope scope) {
+        return compare(
+                dataset,
+                Flux.fromIterable(sourceRows),
+                Flux.fromIterable(targetRows),
+                settings,
+                scope
+        );
+    }
+
+    /**
+     * Streams rows from each Flux into DuckDB (no full materialization), then runs EXCEPT ALL.
+     * Call from a bounded elastic scheduler — this method blocks while consuming the fluxes.
+     */
+    public Result compare(
+            DatasetConfiguration dataset,
+            Flux<DataLoadDefinition.RawRow> sourceRows,
+            Flux<DataLoadDefinition.RawRow> targetRows,
             ReconSettings settings,
             RunScope scope) {
 
@@ -58,8 +82,11 @@ public class DuckDbExceptReconciler {
         }
 
         try (Connection connection = DriverManager.getConnection(jdbcUrl)) {
-            loadSide(connection, "source_rows", sourceRows, dataset.getSource() == null ? null : dataset.getSource().getFields());
-            loadSide(connection, "target_rows", targetRows, dataset.getTarget() == null ? null : dataset.getTarget().getFields());
+            List<String> sourceFields = dataset.getSource() == null ? null : dataset.getSource().getFields();
+            List<String> targetFields = dataset.getTarget() == null ? null : dataset.getTarget().getFields();
+
+            long sourceCount = loadSide(connection, "source_rows", sourceRows, sourceFields);
+            long targetCount = loadSide(connection, "target_rows", targetRows, targetFields);
 
             try (Statement statement = connection.createStatement()) {
                 statement.execute("CREATE OR REPLACE TABLE src_except AS "
@@ -71,11 +98,6 @@ public class DuckDbExceptReconciler {
             Map<String, String> srcExcept = loadExcept(connection, "src_except");
             Map<String, String> tgtExcept = loadExcept(connection, "tgt_except");
 
-            Set<String> allKeys = new LinkedHashSet<>();
-            allKeys.addAll(keys(sourceRows));
-            allKeys.addAll(keys(targetRows));
-
-            long matched = 0;
             long mismatched = 0;
             long sourceOnly = 0;
             long targetOnly = 0;
@@ -133,11 +155,12 @@ public class DuckDbExceptReconciler {
                 }
             }
 
-            matched = Math.max(0, allKeys.size() - mismatched - sourceOnly - targetOnly);
+            long uniqueKeys = countUniqueKeys(connection);
+            long matched = Math.max(0, uniqueKeys - mismatched - sourceOnly - targetOnly);
 
             return new Result(
-                    sourceRows.size(),
-                    targetRows.size(),
+                    sourceCount,
+                    targetCount,
                     matched,
                     mismatched,
                     sourceOnly,
@@ -160,27 +183,53 @@ public class DuckDbExceptReconciler {
             }
             return "jdbc:duckdb:" + file.toAbsolutePath();
         } catch (Exception e) {
-            // fall back to pure in-memory if snapshot dir is not writable
             return "jdbc:duckdb:";
         }
     }
 
-    private static void loadSide(
+    private static long loadSide(
             Connection connection,
             String table,
-            List<DataLoadDefinition.RawRow> rows,
+            Flux<DataLoadDefinition.RawRow> rows,
             List<String> fieldNames) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute("CREATE OR REPLACE TABLE " + table + " (migration_key VARCHAR, payload VARCHAR)");
         }
-        try (PreparedStatement insert = connection.prepareStatement(
-                "INSERT INTO " + table + "(migration_key, payload) VALUES (?, ?)")) {
-            for (DataLoadDefinition.RawRow row : rows) {
-                insert.setString(1, row.migrationKey());
-                insert.setString(2, payload(row, fieldNames));
-                insert.addBatch();
-            }
-            insert.executeBatch();
+
+        DuckDBConnection duck = connection.unwrap(DuckDBConnection.class);
+        AtomicLong count = new AtomicLong();
+        try (DuckDBAppender appender = duck.createAppender("main", table)) {
+            rows.doOnNext(row -> {
+                try {
+                    appender.beginRow();
+                    appender.append(row.migrationKey());
+                    appender.append(payload(row, fieldNames));
+                    appender.endRow();
+                    long n = count.incrementAndGet();
+                    if (n % APPEND_FLUSH_EVERY == 0) {
+                        appender.flush();
+                    }
+                } catch (SQLException e) {
+                    throw new IllegalStateException("DuckDB append failed for table " + table, e);
+                }
+            }).then().block();
+            appender.flush();
+        }
+        return count.get();
+    }
+
+    private static long countUniqueKeys(Connection connection) throws SQLException {
+        String sql = """
+                SELECT COUNT(*) FROM (
+                    SELECT migration_key FROM source_rows
+                    UNION
+                    SELECT migration_key FROM target_rows
+                ) keys
+                """;
+        try (Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(sql)) {
+            rs.next();
+            return rs.getLong(1);
         }
     }
 
@@ -195,17 +244,7 @@ public class DuckDbExceptReconciler {
         return out;
     }
 
-    private static Set<String> keys(List<DataLoadDefinition.RawRow> rows) {
-        Set<String> keys = new LinkedHashSet<>();
-        for (DataLoadDefinition.RawRow row : rows) {
-            keys.add(row.migrationKey());
-        }
-        return keys;
-    }
-
     static String payload(DataLoadDefinition.RawRow row, List<String> fieldNames) {
-        // Positional comparable values so EXCEPT matches Recce's column-order contract
-        // even when one side names fields and the other does not.
         try {
             return JSON.writeValueAsString(row.comparableValues());
         } catch (JsonProcessingException e) {

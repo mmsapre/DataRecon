@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -110,20 +111,16 @@ public class DatasetRecService {
             RunScope scope,
             Long baselineRunId) {
         int batchSize = dataset.getBatchSize() == null ? 1000 : Math.max(1, dataset.getBatchSize());
-        Mono<List<DataLoadDefinition.RawRow>> sourceMono =
-                rowLoader.load(dataset.getSource(), batchSize).collectList();
-        Mono<List<DataLoadDefinition.RawRow>> targetMono =
-                rowLoader.load(dataset.getTarget(), batchSize).collectList();
-
-        return Mono.zip(sourceMono, targetMono)
-                .flatMap(tuple -> Mono.fromCallable(() -> duckDbExceptReconciler.compare(
-                                dataset,
-                                tuple.getT1(),
-                                tuple.getT2(),
-                                settings,
-                                scope
-                        ))
-                        .flatMap(result -> persistDuckDbResult(runId, dataset, scope, baselineRunId, result)));
+        // Stream source then target into DuckDB (Appender) — avoid collectList of ~750k+ rows.
+        return Mono.fromCallable(() -> duckDbExceptReconciler.compare(
+                        dataset,
+                        rowLoader.load(dataset.getSource(), batchSize),
+                        rowLoader.load(dataset.getTarget(), batchSize),
+                        settings,
+                        scope
+                ))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(result -> persistDuckDbResult(runId, dataset, scope, baselineRunId, result));
     }
 
     private Mono<Void> persistDuckDbResult(
@@ -147,7 +144,8 @@ public class DatasetRecService {
                     .toList();
         }
 
-        int batchSize = Math.max(1, dataset.getBatchSize() == null ? 1000 : dataset.getBatchSize());
+        // Prefer larger JDBC batches when persisting many mismatch payloads.
+        int batchSize = Math.max(1000, dataset.getBatchSize() == null ? 5000 : dataset.getBatchSize());
         Flux<Void> persist = toStore.isEmpty()
                 ? Flux.empty()
                 : Flux.fromIterable(toStore)
