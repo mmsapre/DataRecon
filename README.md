@@ -11,7 +11,7 @@ A Java 17 / Maven / Spring Boot service that reconciles source and target datase
 - PostgreSQL persistence for run history and per-key hash results
 - `MigrationKey` based reconciliation
 - TypeStrict / TypeLenient hashing
-- Flyway schema
+- Idempotent schema bootstrap (no Flyway history table)
 - Basic authentication
 - REST APIs and Swagger UI (`/swagger-ui.html`)
 - Domain and profile **API trigger** (no in-app schedule)
@@ -68,8 +68,14 @@ hold the business tables or collections you want to compare.
 
 ### 1. Create the Data Recon database
 
-Create an empty PostgreSQL database. Flyway creates the recon tables on first start.
-Do **not** create `rec_run` / `rec_record` yourself.
+Create an empty PostgreSQL database. Schema can be created either by the service or externally:
+
+| Mode | Setting | Who creates `rec_*` tables |
+|---|---|---|
+| **Service** (default) | `mms.recon.database.manage-schema: true` | App applies `db/schema/recon_schema.sql` on start |
+| **External** | `manage-schema: false` | DBA runs `db/schema/recon_schema.defaults.sql` (or the placeholder script) before start |
+
+No Flyway and no `flyway_schema_history` table in either mode.
 
 ```sql
 CREATE DATABASE data_recon;
@@ -110,10 +116,18 @@ Environment variables:
 | tables.run | `DATA_RECON_DB_RUN_TABLE` | `rec_run` |
 | tables.record | `DATA_RECON_DB_RECORD_TABLE` | `rec_record` |
 
-On startup Flyway:
+On startup, when `manage-schema` is true, the app:
 
 - creates `mms.recon.database.schema` if it does not exist
-- creates/updates **only** Data Recon’s tables: `rec_run` (run history) and `rec_record` (per-key hashes)
+- creates/updates Data Recon’s tables via `db/schema/recon_schema.sql` (no schema-history table)
+
+When `manage-schema` is false, those tables must already exist (apply
+`db/schema/recon_schema.defaults.sql` or an equivalent script).
+
+| Property | Env | Default |
+|---|---|---|
+| manage-schema | `DATA_RECON_DB_MANAGE_SCHEMA` | `true` |
+| recreate-on-start | `DATA_RECON_DB_RECREATE_ON_START` | `false` (dev profile: `true`) |
 
 Those tables store counts, match status, hashes, and the optional source/target query plus
 recon options used for that run — never source/target business values.
@@ -332,7 +346,8 @@ java -Dspring.profiles.active=prod -jar target/data-recon-1.0.0-SNAPSHOT.jar
 
 Shared settings: `src/main/resources/application.yml`.  
 Env catalog: `application-{dev|uat|sit|prod}.yml`.  
-After start, Flyway has created `public.rec_run` and `public.rec_record` (or the names you set). Then trigger
+After start, recon tables such as `public.rec_run` and `public.rec_record` (or the names you set)
+exist. Then trigger
 a run (see APIs below). Each completed profile run stores counts, optional source/target
 queries, recon mode, and condition fields on `rec_run`, and per-key hashes on `rec_record`.
 

@@ -4,15 +4,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
- * Loads active catalog rows from the primary recon DB into memory after Flyway.
+ * Loads active catalog rows from the primary recon DB into memory after schema bootstrap.
  * Datasources are registered by <strong>name</strong> and indexed by <strong>schema</strong>
  * so profiles can attach via either key; connections are resolved from the registry at execute time.
  * Only {@code mms.recon.database} is required at start.
  */
 @Component
+@Order(Ordered.LOWEST_PRECEDENCE)
 public class CatalogBootstrap implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(CatalogBootstrap.class);

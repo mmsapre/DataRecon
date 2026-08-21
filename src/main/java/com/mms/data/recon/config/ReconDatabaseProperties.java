@@ -14,8 +14,13 @@ public class ReconDatabaseProperties {
     private String schema = "public";
     private Tables tables = new Tables();
     /**
-     * When true, Flyway {@code clean}s the recon schema then migrates on every start
-     * (drops and recreates {@code rec_*} tables). Intended for local/dev only.
+     * When true (default), the service applies idempotent DDL on start ({@code db/schema/recon_schema.sql}).
+     * When false, tables must already exist (apply that script externally / via DBA).
+     */
+    private boolean manageSchema = true;
+    /**
+     * When true (and {@link #manageSchema} is true), drops recon {@code rec_*} tables then re-applies DDL.
+     * Intended for local/dev only. No schema-history table is used.
      */
     private boolean recreateOnStart = false;
 
@@ -42,6 +47,9 @@ public class ReconDatabaseProperties {
 
     public Tables getTables() { return tables; }
     public void setTables(Tables tables) { this.tables = tables == null ? new Tables() : tables; }
+
+    public boolean isManageSchema() { return manageSchema; }
+    public void setManageSchema(boolean manageSchema) { this.manageSchema = manageSchema; }
 
     public boolean isRecreateOnStart() { return recreateOnStart; }
     public void setRecreateOnStart(boolean recreateOnStart) { this.recreateOnStart = recreateOnStart; }

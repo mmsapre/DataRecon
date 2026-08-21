@@ -15,20 +15,7 @@ spring:
   jackson:
     serialization:
       write-dates-as-timestamps: false
-  flyway:
-    enabled: true
-    # Allow programmatic clean when mms.recon.database.recreate-on-start=true (see ReconFlywayConfig).
-    clean-disabled: false
-    create-schemas: true
-    default-schema: ${mms.recon.database.schema:public}
-    schemas:
-      - ${mms.recon.database.schema:public}
-    placeholders:
-      runTable: ${mms.recon.database.tables.run:rec_run}
-      recordTable: ${mms.recon.database.tables.record:rec_record}
-      datasourceTable: ${mms.recon.database.tables.datasource:rec_datasource}
-      domainTable: ${mms.recon.database.tables.domain:rec_domain}
-      profileTable: ${mms.recon.database.tables.profile:rec_profile}
+  # Schema is applied by ReconSchemaBootstrap (idempotent DDL). No Flyway history table.
 
 server:
   port: ${SERVER_PORT:8080}
@@ -65,7 +52,9 @@ mms:
       password: ${DATA_RECON_DB_PASSWORD:postgres}
       maximum-pool-size: 5
       schema: ${DATA_RECON_DB_SCHEMA:public}
-      # true = Flyway clean + migrate every start (wipes rec_*). Enabled in application-dev.yml.
+      # true = service applies db/schema/recon_schema.sql on start; false = tables created externally.
+      manage-schema: ${DATA_RECON_DB_MANAGE_SCHEMA:true}
+      # true = drop and recreate rec_* on start (only when manage-schema=true). Dev: application-dev.yml.
       recreate-on-start: ${DATA_RECON_DB_RECREATE_ON_START:false}
       tables:
         run: ${DATA_RECON_DB_RUN_TABLE:rec_run}

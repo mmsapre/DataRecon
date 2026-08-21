@@ -1,3 +1,4 @@
 # PROD — SPRING_PROFILES_ACTIVE=prod (or PROFILE=prod)
 # App store: application.yml → mms.recon.database (override with DATA_RECON_DB_* env vars).
+# Prefer manage-schema=false in prod and apply db/schema/recon_schema.defaults.sql via release DDL.
 # Named source/target datasources are registered via API, not YAML.

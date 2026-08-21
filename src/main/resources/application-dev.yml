@@ -9,5 +9,6 @@ mms:
       name: data_recon
       username: postgres
       password: postgres
+      manage-schema: true
       # Drop and recreate rec_* tables on every start (catalog/run data wiped).
       recreate-on-start: true
