@@ -321,10 +321,21 @@ public final class InMemoryRecStores {
 
         @Override
         public List<RecRecordRepository.RecRecord> findByRun(long runId, String status) {
-            if (status == null || status.isBlank()) {
-                return List.copyOf(inserted);
-            }
-            return inserted.stream().filter(record -> record.status().name().equals(status)).toList();
+            return findByRun(runId, status, Integer.MAX_VALUE, 0).records();
+        }
+
+        @Override
+        public Page findByRun(long runId, String status, int limit, int offset) {
+            String normalized = RecRecordRepository.normalizeStatus(status);
+            List<RecRecordRepository.RecRecord> filtered = inserted.stream()
+                    .filter(record -> normalized == null || record.status().name().equals(normalized))
+                    .toList();
+            int safeLimit = Math.max(1, Math.min(limit, 1000));
+            int safeOffset = Math.max(0, offset);
+            int from = Math.min(safeOffset, filtered.size());
+            int to = Math.min(from + safeLimit, filtered.size());
+            List<RecRecordRepository.RecRecord> slice = filtered.subList(from, to);
+            return new Page(runId, normalized, safeLimit, safeOffset, filtered.size(), slice.size(), List.copyOf(slice));
         }
     }
 }

@@ -219,6 +219,10 @@ public class RecRunService {
         return recordRepository.findByRun(runId, status);
     }
 
+    public RecRecordRepository.Page recordsPage(long runId, String status, int limit, int offset) {
+        return recordRepository.findByRun(runId, status, limit, offset);
+    }
+
     private void completeDomainRun(long domainRunId) {
         List<RecRunRepository.RunView> profiles = runRepository.listByDomainRun(domainRunId).stream()
                 .filter(run -> run.profileId() != null)

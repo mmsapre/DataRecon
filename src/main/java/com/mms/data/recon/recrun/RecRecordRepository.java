@@ -68,39 +68,102 @@ public class RecRecordRepository {
     }
 
     public List<RecRecord> findByRun(long runId, String status) {
-        String sql = """
+        return findByRun(runId, status, Integer.MAX_VALUE, 0).records();
+    }
+
+    public Page findByRun(long runId, String status, int limit, int offset) {
+        int safeLimit = Math.max(1, Math.min(limit, 1000));
+        int safeOffset = Math.max(0, offset);
+        String normalized = normalizeStatus(status);
+
+        String countSql = """
+                SELECT COUNT(*)
+                FROM %s
+                WHERE run_id = ?
+                  AND (? IS NULL OR status = ?)
+                """.formatted(recordTable);
+
+        String pageSql = """
                 SELECT migration_key, source_hash, target_hash, status, field_diffs, source_payload, target_payload
                 FROM %s
                 WHERE run_id = ?
                   AND (? IS NULL OR status = ?)
                 ORDER BY migration_key
+                LIMIT ? OFFSET ?
                 """.formatted(recordTable);
 
-        try (Connection c = dataSource.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setLong(1, runId);
-            ps.setString(2, status);
-            ps.setString(3, status);
-
-            try (ResultSet rs = ps.executeQuery()) {
-                List<RecRecord> out = new ArrayList<>();
-                while (rs.next()) {
-                    out.add(new RecRecord(
-                            rs.getString("migration_key"),
-                            rs.getString("source_hash"),
-                            rs.getString("target_hash"),
-                            RecStatus.valueOf(rs.getString("status")),
-                            rs.getString("field_diffs"),
-                            rs.getString("source_payload"),
-                            rs.getString("target_payload")
-                    ));
+        try (Connection c = dataSource.getConnection()) {
+            long total;
+            try (PreparedStatement countPs = c.prepareStatement(countSql)) {
+                countPs.setLong(1, runId);
+                countPs.setString(2, normalized);
+                countPs.setString(3, normalized);
+                try (ResultSet rs = countPs.executeQuery()) {
+                    rs.next();
+                    total = rs.getLong(1);
                 }
-                return out;
             }
+
+            List<RecRecord> out = new ArrayList<>();
+            try (PreparedStatement pagePs = c.prepareStatement(pageSql)) {
+                pagePs.setLong(1, runId);
+                pagePs.setString(2, normalized);
+                pagePs.setString(3, normalized);
+                pagePs.setInt(4, safeLimit);
+                pagePs.setInt(5, safeOffset);
+                try (ResultSet rs = pagePs.executeQuery()) {
+                    while (rs.next()) {
+                        out.add(new RecRecord(
+                                rs.getString("migration_key"),
+                                rs.getString("source_hash"),
+                                rs.getString("target_hash"),
+                                RecStatus.valueOf(rs.getString("status")),
+                                rs.getString("field_diffs"),
+                                rs.getString("source_payload"),
+                                rs.getString("target_payload")
+                        ));
+                    }
+                }
+            }
+            return new Page(runId, normalized, safeLimit, safeOffset, total, out.size(), List.copyOf(out));
         } catch (SQLException e) {
             throw new IllegalStateException("Unable to read reconciliation records", e);
         }
     }
+
+    /**
+     * Accepts stored statuses and short aliases: {@code SOURCE}→{@code SOURCE_ONLY},
+     * {@code TARGET}→{@code TARGET_ONLY}.
+     */
+    public static String normalizeStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        String trimmed = status.trim();
+        if ("SOURCE".equalsIgnoreCase(trimmed)) {
+            return RecStatus.SOURCE_ONLY.name();
+        }
+        if ("TARGET".equalsIgnoreCase(trimmed)) {
+            return RecStatus.TARGET_ONLY.name();
+        }
+        for (RecStatus value : RecStatus.values()) {
+            if (value.name().equalsIgnoreCase(trimmed)) {
+                return value.name();
+            }
+        }
+        throw new IllegalArgumentException(
+                "Unknown status '" + status + "'; use MATCHED, MISMATCHED, SOURCE_ONLY|SOURCE, TARGET_ONLY|TARGET"
+        );
+    }
+
+    public record Page(
+            long runId,
+            String status,
+            int limit,
+            int offset,
+            long total,
+            int pageSize,
+            List<RecRecord> records) {}
 
     public record RecRecord(
             String migrationKey,

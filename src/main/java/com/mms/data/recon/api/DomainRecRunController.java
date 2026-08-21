@@ -132,11 +132,30 @@ public class DomainRecRunController {
     }
 
     @GetMapping("/runs/{runId}/records")
-    public List<RecRecordRepository.RecRecord> records(
+    @Operation(
+            summary = "List run records (paginated)",
+            description = "Filter by status: MATCHED, MISMATCHED, SOURCE_ONLY|SOURCE, TARGET_ONLY|TARGET. "
+                    + "Returns limit, offset, total, and pageSize (rows on this page)."
+    )
+    public RecRecordsPage records(
             @PathVariable long runId,
-            @RequestParam(defaultValue = "") String status) {
-        String filter = status == null || status.isBlank() ? null : status;
-        return service.records(runId, filter);
+            @RequestParam(defaultValue = "") String status,
+            @RequestParam(defaultValue = "100") int limit,
+            @RequestParam(defaultValue = "0") int offset) {
+        try {
+            RecRecordRepository.Page page = service.recordsPage(runId, status, limit, offset);
+            return new RecRecordsPage(
+                    page.runId(),
+                    page.status(),
+                    page.limit(),
+                    page.offset(),
+                    page.total(),
+                    page.pageSize(),
+                    page.records()
+            );
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
     }
 
     private Mono<ResponseEntity<ProfileRunTriggerApiModel>> triggerByRef(
