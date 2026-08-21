@@ -73,7 +73,10 @@ Create an empty PostgreSQL database. Schema can be created either by the service
 | Mode | Setting | Who creates `rec_*` tables |
 |---|---|---|
 | **Service** (default) | `mms.recon.database.manage-schema: true` | App applies `db/schema/recon_schema.sql` on start |
-| **External** | `manage-schema: false` | DBA runs `db/schema/recon_schema.defaults.sql` (or the placeholder script) before start |
+| **External** | `manage-schema: false` | DBA runs `db/schema/recon_schema.defaults.sql` (substitute `${schema}`, e.g. `public`) before start |
+
+Both scripts take **`${schema}`** as a parameter. The service also substitutes table-name placeholders
+(`${runTable}`, `${recordTable}`, …) from `mms.recon.database`.
 
 No Flyway and no `flyway_schema_history` table in either mode.
 
@@ -122,7 +125,7 @@ On startup, when `manage-schema` is true, the app:
 - creates/updates Data Recon’s tables via `db/schema/recon_schema.sql` (no schema-history table)
 
 When `manage-schema` is false, those tables must already exist (apply
-`db/schema/recon_schema.defaults.sql` or an equivalent script).
+`db/schema/recon_schema.defaults.sql` with `${schema}` set, e.g. `public`).
 
 | Property | Env | Default |
 |---|---|---|

@@ -16,12 +16,14 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Ensures recon app-store tables exist on startup using idempotent DDL.
  * No Flyway and no schema-history / version-tracking table.
+ * Substitutes {@code ${schema}} and table-name placeholders from {@link ReconDatabaseProperties}.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -44,12 +46,12 @@ public class ReconSchemaBootstrap implements ApplicationRunner {
             if (database.isRecreateOnStart()) {
                 log.warn(
                         "mms.recon.database.recreate-on-start ignored because manage-schema=false "
-                                + "(expect tables from external DDL: classpath:db/schema/recon_schema.sql)"
+                                + "(expect tables from external DDL: classpath:db/schema/recon_schema.defaults.sql)"
                 );
             } else {
                 log.info(
                         "mms.recon.database.manage-schema=false — skipping DDL; "
-                                + "recon tables must already exist (see db/schema/recon_schema.sql)"
+                                + "recon tables must already exist (see db/schema/recon_schema.defaults.sql, pass ${schema})"
                 );
             }
             return;
@@ -57,15 +59,12 @@ public class ReconSchemaBootstrap implements ApplicationRunner {
 
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
-            ensureSchema(statement);
             // Remove leftover Flyway history if present — this app does not use it.
             statement.execute("DROP TABLE IF EXISTS flyway_schema_history");
-            String schema = database.resolvedSchema();
-            if (schema != null && !schema.isBlank() && !"public".equalsIgnoreCase(schema)) {
-                statement.execute(
-                        "DROP TABLE IF EXISTS " + quoteIdent(schema) + ".flyway_schema_history"
-                );
-            }
+            statement.execute(
+                    "DROP TABLE IF EXISTS " + quoteIdent(database.resolvedSchema()) + ".flyway_schema_history"
+            );
+
             if (database.isRecreateOnStart()) {
                 log.warn(
                         "mms.recon.database.recreate-on-start=true — dropping recon tables in schema '{}'",
@@ -89,33 +88,21 @@ public class ReconSchemaBootstrap implements ApplicationRunner {
         }
     }
 
-    private void ensureSchema(Statement statement) throws SQLException {
-        String schema = database.resolvedSchema();
-        if (schema != null && !schema.isBlank() && !"public".equalsIgnoreCase(schema)) {
-            statement.execute("CREATE SCHEMA IF NOT EXISTS " + quoteIdent(schema));
-        }
-    }
-
     private void dropRecTables(Statement statement) throws SQLException {
         ReconDatabaseProperties.Tables tables = database.getTables();
+        String schema = quoteIdent(database.resolvedSchema());
         // Children first (FK from record → run).
-        statement.execute("DROP TABLE IF EXISTS " + qualify(tables.getRecord()) + " CASCADE");
-        statement.execute("DROP TABLE IF EXISTS " + qualify(tables.getProfile()) + " CASCADE");
-        statement.execute("DROP TABLE IF EXISTS " + qualify(tables.getDomain()) + " CASCADE");
-        statement.execute("DROP TABLE IF EXISTS " + qualify(tables.getDatasource()) + " CASCADE");
-        statement.execute("DROP TABLE IF EXISTS " + qualify(tables.getRun()) + " CASCADE");
+        statement.execute("DROP TABLE IF EXISTS " + schema + "." + quoteIdent(tables.getRecord()) + " CASCADE");
+        statement.execute("DROP TABLE IF EXISTS " + schema + "." + quoteIdent(tables.getProfile()) + " CASCADE");
+        statement.execute("DROP TABLE IF EXISTS " + schema + "." + quoteIdent(tables.getDomain()) + " CASCADE");
+        statement.execute("DROP TABLE IF EXISTS " + schema + "." + quoteIdent(tables.getDatasource()) + " CASCADE");
+        statement.execute("DROP TABLE IF EXISTS " + schema + "." + quoteIdent(tables.getRun()) + " CASCADE");
     }
 
     private List<String> loadStatements() throws IOException {
         String script = new ClassPathResource(SCHEMA_RESOURCE)
                 .getContentAsString(StandardCharsets.UTF_8);
-        Map<String, String> placeholders = Map.of(
-                "runTable", qualify(database.getTables().getRun()),
-                "recordTable", qualify(database.getTables().getRecord()),
-                "datasourceTable", qualify(database.getTables().getDatasource()),
-                "domainTable", qualify(database.getTables().getDomain()),
-                "profileTable", qualify(database.getTables().getProfile())
-        );
+        Map<String, String> placeholders = placeholders();
         for (Map.Entry<String, String> entry : placeholders.entrySet()) {
             script = script.replace("${" + entry.getKey() + "}", entry.getValue());
         }
@@ -146,12 +133,17 @@ public class ReconSchemaBootstrap implements ApplicationRunner {
         return statements;
     }
 
-    private String qualify(String table) {
-        String schema = database.resolvedSchema();
-        if (schema == null || schema.isBlank() || "public".equalsIgnoreCase(schema)) {
-            return quoteIdent(table);
-        }
-        return quoteIdent(schema) + "." + quoteIdent(table);
+    /** Values substituted into {@code recon_schema.sql} (and documented for defaults). */
+    Map<String, String> placeholders() {
+        ReconDatabaseProperties.Tables tables = database.getTables();
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("schema", quoteIdent(database.resolvedSchema()));
+        map.put("runTable", quoteIdent(tables.getRun()));
+        map.put("recordTable", quoteIdent(tables.getRecord()));
+        map.put("datasourceTable", quoteIdent(tables.getDatasource()));
+        map.put("domainTable", quoteIdent(tables.getDomain()));
+        map.put("profileTable", quoteIdent(tables.getProfile()));
+        return map;
     }
 
     private static String quoteIdent(String ident) {

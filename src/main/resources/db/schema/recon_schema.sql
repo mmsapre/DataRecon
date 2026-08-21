@@ -1,9 +1,11 @@
 -- Idempotent recon app-store schema (placeholder form for the service).
 -- manage-schema=true  → ReconSchemaBootstrap applies this on start (no history table).
--- manage-schema=false → apply externally; see recon_schema.defaults.sql for default names.
--- Placeholders: ${runTable} ${recordTable} ${datasourceTable} ${domainTable} ${profileTable}
+-- manage-schema=false → apply externally; substitute placeholders (see recon_schema.defaults.sql).
+-- Placeholders: ${schema} ${runTable} ${recordTable} ${datasourceTable} ${domainTable} ${profileTable}
 
-CREATE TABLE IF NOT EXISTS ${runTable} (
+CREATE SCHEMA IF NOT EXISTS ${schema};
+
+CREATE TABLE IF NOT EXISTS ${schema}.${runTable} (
     id BIGSERIAL PRIMARY KEY,
     dataset_id VARCHAR(255) NOT NULL,
     status VARCHAR(32) NOT NULL,
@@ -31,39 +33,39 @@ CREATE TABLE IF NOT EXISTS ${runTable} (
 );
 
 CREATE INDEX IF NOT EXISTS idx_rec_run_dataset
-    ON ${runTable}(dataset_id, id DESC);
+    ON ${schema}.${runTable}(dataset_id, id DESC);
 
 CREATE INDEX IF NOT EXISTS idx_rec_run_domain
-    ON ${runTable}(domain_id, id DESC);
+    ON ${schema}.${runTable}(domain_id, id DESC);
 
 CREATE INDEX IF NOT EXISTS idx_rec_run_profile
-    ON ${runTable}(domain_id, profile_id, id DESC);
+    ON ${schema}.${runTable}(domain_id, profile_id, id DESC);
 
 CREATE INDEX IF NOT EXISTS idx_rec_run_domain_run
-    ON ${runTable}(domain_run_id);
+    ON ${schema}.${runTable}(domain_run_id);
 
 CREATE INDEX IF NOT EXISTS idx_rec_run_active
-    ON ${runTable}(domain_id, profile_id, active, id DESC);
+    ON ${schema}.${runTable}(domain_id, profile_id, active, id DESC);
 
 CREATE INDEX IF NOT EXISTS idx_rec_run_baseline
-    ON ${runTable}(baseline_run_id);
+    ON ${schema}.${runTable}(baseline_run_id);
 
-ALTER TABLE ${runTable} ADD COLUMN IF NOT EXISTS domain_id VARCHAR(255);
-ALTER TABLE ${runTable} ADD COLUMN IF NOT EXISTS profile_id VARCHAR(255);
-ALTER TABLE ${runTable} ADD COLUMN IF NOT EXISTS domain_run_id BIGINT;
-ALTER TABLE ${runTable} ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT false;
-ALTER TABLE ${runTable} ADD COLUMN IF NOT EXISTS recon_mode VARCHAR(32);
-ALTER TABLE ${runTable} ADD COLUMN IF NOT EXISTS source_query TEXT;
-ALTER TABLE ${runTable} ADD COLUMN IF NOT EXISTS target_query TEXT;
-ALTER TABLE ${runTable} ADD COLUMN IF NOT EXISTS condition_fields TEXT;
-ALTER TABLE ${runTable} ADD COLUMN IF NOT EXISTS run_scope VARCHAR(32);
-ALTER TABLE ${runTable} ADD COLUMN IF NOT EXISTS baseline_run_id BIGINT;
-ALTER TABLE ${runTable} ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
-ALTER TABLE ${runTable} ADD COLUMN IF NOT EXISTS created_by VARCHAR(128) NOT NULL DEFAULT 'data-recon';
+ALTER TABLE ${schema}.${runTable} ADD COLUMN IF NOT EXISTS domain_id VARCHAR(255);
+ALTER TABLE ${schema}.${runTable} ADD COLUMN IF NOT EXISTS profile_id VARCHAR(255);
+ALTER TABLE ${schema}.${runTable} ADD COLUMN IF NOT EXISTS domain_run_id BIGINT;
+ALTER TABLE ${schema}.${runTable} ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE ${schema}.${runTable} ADD COLUMN IF NOT EXISTS recon_mode VARCHAR(32);
+ALTER TABLE ${schema}.${runTable} ADD COLUMN IF NOT EXISTS source_query TEXT;
+ALTER TABLE ${schema}.${runTable} ADD COLUMN IF NOT EXISTS target_query TEXT;
+ALTER TABLE ${schema}.${runTable} ADD COLUMN IF NOT EXISTS condition_fields TEXT;
+ALTER TABLE ${schema}.${runTable} ADD COLUMN IF NOT EXISTS run_scope VARCHAR(32);
+ALTER TABLE ${schema}.${runTable} ADD COLUMN IF NOT EXISTS baseline_run_id BIGINT;
+ALTER TABLE ${schema}.${runTable} ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE ${schema}.${runTable} ADD COLUMN IF NOT EXISTS created_by VARCHAR(128) NOT NULL DEFAULT 'data-recon';
 
-CREATE TABLE IF NOT EXISTS ${recordTable} (
+CREATE TABLE IF NOT EXISTS ${schema}.${recordTable} (
     id BIGSERIAL PRIMARY KEY,
-    run_id BIGINT NOT NULL REFERENCES ${runTable}(id) ON DELETE CASCADE,
+    run_id BIGINT NOT NULL REFERENCES ${schema}.${runTable}(id) ON DELETE CASCADE,
     migration_key VARCHAR(1024) NOT NULL,
     source_hash VARCHAR(128),
     target_hash VARCHAR(128),
@@ -76,18 +78,18 @@ CREATE TABLE IF NOT EXISTS ${recordTable} (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_rec_record_run_key
-    ON ${recordTable}(run_id, migration_key);
+    ON ${schema}.${recordTable}(run_id, migration_key);
 
 CREATE INDEX IF NOT EXISTS idx_rec_record_status
-    ON ${recordTable}(run_id, status);
+    ON ${schema}.${recordTable}(run_id, status);
 
-ALTER TABLE ${recordTable} ADD COLUMN IF NOT EXISTS field_diffs TEXT;
-ALTER TABLE ${recordTable} ADD COLUMN IF NOT EXISTS source_payload TEXT;
-ALTER TABLE ${recordTable} ADD COLUMN IF NOT EXISTS target_payload TEXT;
-ALTER TABLE ${recordTable} ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
-ALTER TABLE ${recordTable} ADD COLUMN IF NOT EXISTS created_by VARCHAR(128) NOT NULL DEFAULT 'data-recon';
+ALTER TABLE ${schema}.${recordTable} ADD COLUMN IF NOT EXISTS field_diffs TEXT;
+ALTER TABLE ${schema}.${recordTable} ADD COLUMN IF NOT EXISTS source_payload TEXT;
+ALTER TABLE ${schema}.${recordTable} ADD COLUMN IF NOT EXISTS target_payload TEXT;
+ALTER TABLE ${schema}.${recordTable} ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE ${schema}.${recordTable} ADD COLUMN IF NOT EXISTS created_by VARCHAR(128) NOT NULL DEFAULT 'data-recon';
 
-CREATE TABLE IF NOT EXISTS ${datasourceTable} (
+CREATE TABLE IF NOT EXISTS ${schema}.${datasourceTable} (
     id              BIGSERIAL PRIMARY KEY,
     name            VARCHAR(128) NOT NULL,
     type            VARCHAR(32) NOT NULL,
@@ -102,13 +104,13 @@ CREATE TABLE IF NOT EXISTS ${datasourceTable} (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_rec_datasource_active_name
-    ON ${datasourceTable}(name)
+    ON ${schema}.${datasourceTable}(name)
     WHERE active = true;
 
 CREATE INDEX IF NOT EXISTS idx_rec_datasource_name_version
-    ON ${datasourceTable}(name, version DESC);
+    ON ${schema}.${datasourceTable}(name, version DESC);
 
-CREATE TABLE IF NOT EXISTS ${domainTable} (
+CREATE TABLE IF NOT EXISTS ${schema}.${domainTable} (
     id              BIGSERIAL PRIMARY KEY,
     domain_id       VARCHAR(128) NOT NULL,
     tags_json       TEXT,
@@ -122,13 +124,13 @@ CREATE TABLE IF NOT EXISTS ${domainTable} (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_rec_domain_active_id
-    ON ${domainTable}(domain_id)
+    ON ${schema}.${domainTable}(domain_id)
     WHERE active = true;
 
 CREATE INDEX IF NOT EXISTS idx_rec_domain_id_version
-    ON ${domainTable}(domain_id, version DESC);
+    ON ${schema}.${domainTable}(domain_id, version DESC);
 
-CREATE TABLE IF NOT EXISTS ${profileTable} (
+CREATE TABLE IF NOT EXISTS ${schema}.${profileTable} (
     id              BIGSERIAL PRIMARY KEY,
     domain_id       VARCHAR(128) NOT NULL,
     profile_id      VARCHAR(128) NOT NULL,
@@ -143,8 +145,8 @@ CREATE TABLE IF NOT EXISTS ${profileTable} (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_rec_profile_active
-    ON ${profileTable}(domain_id, profile_id)
+    ON ${schema}.${profileTable}(domain_id, profile_id)
     WHERE active = true;
 
 CREATE INDEX IF NOT EXISTS idx_rec_profile_version
-    ON ${profileTable}(domain_id, profile_id, version DESC);
+    ON ${schema}.${profileTable}(domain_id, profile_id, version DESC);
