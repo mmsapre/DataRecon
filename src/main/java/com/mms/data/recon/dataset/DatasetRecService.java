@@ -9,6 +9,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -94,9 +95,24 @@ public class DatasetRecService {
                 baselineRunId
         );
 
+        Instant until = Instant.now();
+        Instant since = Instant.EPOCH;
+        if (scope == RunScope.INCREMENTAL && baselineRunId != null) {
+            RecRunRepository.RunView baseline = runRepository.find(baselineRunId);
+            if (baseline != null) {
+                since = baseline.completedAt() != null ? baseline.completedAt() : baseline.startedAt();
+                if (since == null) {
+                    since = Instant.EPOCH;
+                }
+            }
+        }
+
+        DataLoadDefinition sourceLoad = withWindow(dataset.getSource(), since, until);
+        DataLoadDefinition targetLoad = withWindow(dataset.getTarget(), since, until);
+
         Mono<Void> work = (settings.resolvedMode() == ReconMode.COUNTS
-                ? hashReconcile(runId, dataset, settings)
-                : detailReconcile(runId, dataset, settings, scope, baselineRunId))
+                ? hashReconcile(runId, dataset, settings, sourceLoad, targetLoad)
+                : detailReconcile(runId, dataset, settings, scope, baselineRunId, sourceLoad, targetLoad))
                 .subscribeOn(Schedulers.boundedElastic())
                 .doOnError(error -> runRepository.fail(runId, error))
                 .cache();
@@ -108,11 +124,24 @@ public class DatasetRecService {
 
     public record StartedRun(long runId, Mono<Void> completion) {}
 
-    private Mono<Void> hashReconcile(long runId, DatasetConfiguration dataset, ReconSettings settings) {
+    private static DataLoadDefinition withWindow(DataLoadDefinition side, Instant since, Instant until) {
+        if (side == null) {
+            return null;
+        }
+        DatasourceType type = side.resolveType((java.util.function.Function<String, java.util.Optional<DatasourceType>>) null);
+        return IncrementalQuerySupport.applyWindow(side, type, since, until);
+    }
+
+    private Mono<Void> hashReconcile(
+            long runId,
+            DatasetConfiguration dataset,
+            ReconSettings settings,
+            DataLoadDefinition sourceLoad,
+            DataLoadDefinition targetLoad) {
         Mono<Map<String, LoadedRow>> sourceMono =
-                loadHashed(dataset.getSource(), dataset.getHashingStrategy(), dataset.getBatchSize());
+                loadHashed(sourceLoad, dataset.getHashingStrategy(), dataset.getBatchSize());
         Mono<Map<String, LoadedRow>> targetMono =
-                loadHashed(dataset.getTarget(), dataset.getHashingStrategy(), dataset.getBatchSize());
+                loadHashed(targetLoad, dataset.getHashingStrategy(), dataset.getBatchSize());
         return Mono.zip(sourceMono, targetMono)
                 .flatMap(tuple -> persistHashComparison(runId, dataset, settings, tuple.getT1(), tuple.getT2()));
     }
@@ -122,13 +151,15 @@ public class DatasetRecService {
             DatasetConfiguration dataset,
             ReconSettings settings,
             RunScope scope,
-            Long baselineRunId) {
+            Long baselineRunId,
+            DataLoadDefinition sourceLoad,
+            DataLoadDefinition targetLoad) {
         int batchSize = dataset.getBatchSize() == null ? 1000 : Math.max(1, dataset.getBatchSize());
         // Stream source then target into DuckDB (Appender) — avoid collectList of ~750k+ rows.
         return Mono.fromCallable(() -> duckDbExceptReconciler.compare(
                         dataset,
-                        rowLoader.load(dataset.getSource(), batchSize),
-                        rowLoader.load(dataset.getTarget(), batchSize),
+                        rowLoader.load(sourceLoad, batchSize),
+                        rowLoader.load(targetLoad, batchSize),
                         settings,
                         scope
                 ))
@@ -313,8 +344,8 @@ public class DatasetRecService {
             List<Object> values = row.comparableValues();
             String rowHash = RowHasher.hash(values, strategy);
             LinkedHashMap<String, String> fields = new LinkedHashMap<>();
-            List<String> names = definition.getFields();
-            if (names == null || names.isEmpty()) {
+            List<String> names = definition.comparableFields();
+            if (names.isEmpty()) {
                 names = new ArrayList<>();
                 for (String column : row.columns()) {
                     if (!DataLoadDefinition.MIGRATION_KEY_COLUMN_NAME.equalsIgnoreCase(column)) {

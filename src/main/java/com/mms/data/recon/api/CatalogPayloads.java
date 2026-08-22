@@ -41,6 +41,7 @@ final class CatalogPayloads {
         request.setBatchSize(profile.getBatchSize());
         request.setBatchConcurrency(profile.getBatchConcurrency());
         request.setMigrationKey(profile.getMigrationKey());
+        request.setIdentifiers(profile.getIdentifiers());
         if (profile.getRecon() != null) {
             ReconRunRequest recon = new ReconRunRequest();
             recon.setMode(profile.getRecon().getMode());
@@ -69,7 +70,9 @@ final class CatalogPayloads {
         request.setSchema(side.getSchema());
         request.setTable(side.getTable());
         request.setCollection(side.getCollection());
+        request.setIdentifiers(side.getIdentifiers());
         request.setFields(side.getFields());
+        request.setDistinct(side.isDistinct() ? true : null);
         request.setQuery(side.getQuery());
         request.setQueryParams(side.getQueryParams());
         return request;

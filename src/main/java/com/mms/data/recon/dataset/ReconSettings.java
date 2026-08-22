@@ -5,6 +5,8 @@ import java.util.List;
 
 /**
  * Profile (or domain) recon output: counts-only, mismatch details, or field-level mismatch details.
+ * Incremental date windows are configured in the side query via {@code :since} / {@code :until}
+ * (see {@link IncrementalQuerySupport}), not via a separate recon field.
  */
 public class ReconSettings {
 

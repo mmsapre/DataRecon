@@ -76,6 +76,7 @@ class DomainControllerTest {
         assertEquals("TypeLenient", listed.hashingStrategy());
         assertEquals("SINGLE", listed.migrationKeyType());
         assertEquals(List.of("party_id"), listed.migrationKeyColumns());
+        assertEquals(List.of(), listed.identifiers());
         assertEquals("MISMATCH_DETAILS", listed.reconMode());
         assertEquals(List.of(), listed.conditionFields());
         assertEquals(List.of(), listed.tags());

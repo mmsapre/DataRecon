@@ -52,4 +52,61 @@ class DuckDbExceptReconcilerTest {
         assertTrue(result.details().stream().anyMatch(r ->
                 r.migrationKey().equals("4") && r.status() == RecRecordRepository.RecStatus.TARGET_ONLY));
     }
+
+    @Test
+    void detailCompareUsesLenientHashingSoNumericTypesMatch() {
+        DuckDbExceptReconciler reconciler = new DuckDbExceptReconciler(temp);
+        DatasetConfiguration dataset = InMemoryRecStores.dataset("duck-lenient", List.of(), List.of());
+        dataset.setHashingStrategy(HashingStrategy.TypeLenient);
+        dataset.getSource().setFields(List.of("amount"));
+        dataset.getTarget().setFields(List.of("amount"));
+        ReconSettings settings = new ReconSettings();
+        settings.setMode(ReconMode.MISMATCH_DETAILS);
+
+        DuckDbExceptReconciler.Result result = reconciler.compare(
+                dataset,
+                List.of(new DataLoadDefinition.RawRow(
+                        List.of("MigrationKey", "amount"),
+                        List.of("1", 1)
+                )),
+                List.of(new DataLoadDefinition.RawRow(
+                        List.of("MigrationKey", "amount"),
+                        List.of("1", 1.0)
+                )),
+                settings,
+                RunScope.FULL
+        );
+
+        assertEquals(1, result.matched());
+        assertEquals(0, result.mismatched());
+        assertEquals(0, result.details().size());
+    }
+
+    @Test
+    void detailCompareUsesStrictHashingSoNumericTypesDiffer() {
+        DuckDbExceptReconciler reconciler = new DuckDbExceptReconciler(temp);
+        DatasetConfiguration dataset = InMemoryRecStores.dataset("duck-strict", List.of(), List.of());
+        dataset.setHashingStrategy(HashingStrategy.TypeStrict);
+        dataset.getSource().setFields(List.of("amount"));
+        dataset.getTarget().setFields(List.of("amount"));
+        ReconSettings settings = new ReconSettings();
+        settings.setMode(ReconMode.MISMATCH_DETAILS);
+
+        DuckDbExceptReconciler.Result result = reconciler.compare(
+                dataset,
+                List.of(new DataLoadDefinition.RawRow(
+                        List.of("MigrationKey", "amount"),
+                        List.of("1", 1)
+                )),
+                List.of(new DataLoadDefinition.RawRow(
+                        List.of("MigrationKey", "amount"),
+                        List.of("1", 1.0)
+                )),
+                settings,
+                RunScope.FULL
+        );
+
+        assertEquals(0, result.matched());
+        assertEquals(1, result.mismatched());
+    }
 }

@@ -181,6 +181,7 @@ public class DomainController {
                 profile.getTarget() == null ? null : profile.getTarget().describeType(datasourceCatalog),
                 key == null ? null : key.getType().name(),
                 key == null ? List.of() : key.getColumns(),
+                profile.getIdentifiers() == null ? List.of() : profile.getIdentifiers(),
                 profile.getHashingStrategy() == null ? null : profile.getHashingStrategy().name(),
                 profile.resolvedRecon().resolvedMode().name(),
                 profile.resolvedRecon().resolvedConditionFields(),

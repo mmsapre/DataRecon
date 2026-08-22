@@ -13,13 +13,16 @@ import java.util.Optional;
 import java.util.function.Function;
 
 /**
- * Source or target load. Prefer {@code schema}/{@code table}/{@code fields} (SQL is generated)
- * or, when you need joins/filters, set {@code query} directly:
- * PostgreSQL and BigQuery use SQL that aliases the key as {@code MigrationKey};
- * MongoDB uses a JSON filter (still set {@code collection} and {@code fields}).
+ * Source or target load. Prefer {@code schema}/{@code table}/{@code identifiers}/{@code fields}
+ * (SQL is generated) or, when you need joins/filters, set {@code query} directly:
+ * PostgreSQL, BigQuery, and File use SQL that aliases the key as {@code MigrationKey},
+ * then optional {@code identifiers}, then {@code fields};
+ * MongoDB uses a JSON filter (still set {@code collection} and {@code identifiers}/{@code fields}).
  * {@code query} wins over generated SQL. {@code queryFile} is used only when {@code query} is blank.
  * Optional {@code queryParams} binds positional {@code ?} placeholders (SQL prepared statements;
  * Mongo JSON {@code "?"} / {@code ?} placeholders).
+ * Optional {@code :since} / {@code :until} (Mongo: {@code ":since"} / {@code ":until"}) make the
+ * same query support FULL and INCREMENTAL extracts — bound automatically at run time.
  */
 public class DataLoadDefinition {
 
@@ -35,7 +38,15 @@ public class DataLoadDefinition {
     private String schema;
     private String table;
     private MigrationKeySpec migrationKey;
+    /**
+     * Optional identity columns selected after {@code MigrationKey} and always included in
+     * comparison (before {@link #fields}). Useful when the business key has extra attributes
+     * that should participate in detail/COUNTS hashing without becoming the MigrationKey itself.
+     */
+    private List<String> identifiers;
     private List<String> fields;
+    /** When true, generated table SQL uses {@code SELECT DISTINCT}. Ignored when {@code query} is set. */
+    private boolean distinct;
 
     private transient String datasetId;
     private transient Role role;
@@ -82,8 +93,45 @@ public class DataLoadDefinition {
         this.migrationKey = blank(column) ? null : MigrationKeySpec.single(column);
     }
 
+    public List<String> getIdentifiers() { return identifiers; }
+    public void setIdentifiers(List<String> identifiers) {
+        this.identifiers = identifiers == null ? null : new java.util.ArrayList<>(identifiers);
+    }
+
+    public void applyIdentifiers(List<String> identifiers) {
+        if (identifiers != null) {
+            setIdentifiers(identifiers);
+        }
+    }
+
     public List<String> getFields() { return fields; }
     public void setFields(List<String> fields) { this.fields = fields; }
+
+    public boolean isDistinct() { return distinct; }
+    public void setDistinct(boolean distinct) { this.distinct = distinct; }
+
+    /**
+     * Columns compared after MigrationKey: {@code identifiers} then {@code fields},
+     * de-duplicated in order. Used for generated SQL, Mongo projection, and hashing.
+     * Works with a single identifier, multiple identifiers, or identifiers-only (no fields).
+     */
+    public List<String> comparableFields() {
+        java.util.LinkedHashSet<String> ordered = new java.util.LinkedHashSet<>();
+        appendComparable(ordered, identifiers);
+        appendComparable(ordered, fields);
+        return List.copyOf(ordered);
+    }
+
+    private static void appendComparable(java.util.LinkedHashSet<String> ordered, List<String> values) {
+        if (values == null) {
+            return;
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                ordered.add(value.trim());
+            }
+        }
+    }
 
     public String getDatasetId() { return datasetId; }
     public Role getRole() { return role; }
@@ -264,21 +312,22 @@ public class DataLoadDefinition {
                             + "(type SINGLE, COMPOSITE, or DEFINED)"
             );
         }
-        if (fields == null || fields.isEmpty()) {
+        List<String> compareCols = comparableFields();
+        if (compareCols.isEmpty()) {
             throw new ConfigurationException(
                     "Dataset " + datasetId + " " + role
                             + " uses table [" + qualifiedRelation() + "] and must set `fields` "
-                            + "in comparable-column order"
+                            + "and/or `identifiers` in comparable-column order"
             );
         }
         key.initialize();
         String alias = resolvedType == DatasourceType.bigquery
                 ? " AS " + MIGRATION_KEY_COLUMN_NAME
                 : " AS \"" + MIGRATION_KEY_COLUMN_NAME + "\"";
-        StringBuilder sql = new StringBuilder("SELECT ")
+        StringBuilder sql = new StringBuilder(distinct ? "SELECT DISTINCT " : "SELECT ")
                 .append(key.sqlExpression(resolvedType))
                 .append(alias);
-        for (String field : fields) {
+        for (String field : compareCols) {
             sql.append(", ").append(SqlIdentifiers.require("fields", field));
         }
         sql.append(" FROM ").append(qualifiedRelation());

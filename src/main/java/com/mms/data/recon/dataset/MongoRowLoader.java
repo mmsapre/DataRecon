@@ -51,7 +51,7 @@ public class MongoRowLoader {
                 .map(document -> MongoDocumentMapper.toRawRow(
                         document,
                         definition.getMigrationKey(),
-                        definition.getFields()
+                        definition.comparableFields()
                 ))
                 .onErrorMap(error -> {
                     String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
@@ -87,8 +87,10 @@ public class MongoRowLoader {
         } else {
             projected.add(definition.migrationKeyField());
         }
-        if (definition.getFields() != null) {
-            projected.addAll(definition.getFields());
+        for (String field : definition.comparableFields()) {
+            if (!projected.contains(field)) {
+                projected.add(field);
+            }
         }
         return projected;
     }

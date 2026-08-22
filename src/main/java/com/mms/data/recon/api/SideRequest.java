@@ -8,10 +8,13 @@ import java.util.List;
 /**
  * Source or target side of a profile. Datasource is a catalog name
  * ({@code landing}, {@code csv}, …), not a new connection definition.
- * Prefer table/{@code fields} mapping, or set {@code query} (plain or conditional SQL /
- * Mongo JSON filter) with MigrationKey + fields. {@code COUNTS} hashes those fields;
- * detail modes send the same rows to DuckDB. Schema usually comes from the datasource URI.
+ * Prefer table/{@code identifiers}/{@code fields} mapping, or set {@code query} (plain or conditional SQL /
+ * Mongo JSON filter) with MigrationKey + optional identifiers + fields. {@code COUNTS} hashes those
+ * fields with the profile hashing strategy; detail modes send the same rows to DuckDB and apply
+ * TypeLenient/TypeStrict normalization there too. Schema usually comes from the datasource URI.
  * Optional {@code queryParams} binds positional {@code ?} placeholders.
+ * Optional {@code :since} / {@code :until} in the query enable FULL (epoch→now) and INCREMENTAL
+ * (previous active run→now) date windows without a separate profile date-field setting.
  */
 public class SideRequest {
 
@@ -20,7 +23,9 @@ public class SideRequest {
     private String schema;
     private String table;
     private String collection;
+    private List<String> identifiers;
     private List<String> fields;
+    private Boolean distinct;
     private String query;
     private List<Object> queryParams;
 
@@ -40,8 +45,14 @@ public class SideRequest {
         if (collection != null) {
             side.setCollection(collection);
         }
+        if (identifiers != null) {
+            side.setIdentifiers(identifiers);
+        }
         if (fields != null) {
             side.setFields(fields);
+        }
+        if (distinct != null) {
+            side.setDistinct(distinct);
         }
         if (query != null) {
             side.setQuery(query);
@@ -72,8 +83,14 @@ public class SideRequest {
     public String getCollection() { return collection; }
     public void setCollection(String collection) { this.collection = collection; }
 
+    public List<String> getIdentifiers() { return identifiers; }
+    public void setIdentifiers(List<String> identifiers) { this.identifiers = identifiers; }
+
     public List<String> getFields() { return fields; }
     public void setFields(List<String> fields) { this.fields = fields; }
+
+    public Boolean getDistinct() { return distinct; }
+    public void setDistinct(Boolean distinct) { this.distinct = distinct; }
 
     public String getQuery() { return query; }
     public void setQuery(String query) { this.query = query; }

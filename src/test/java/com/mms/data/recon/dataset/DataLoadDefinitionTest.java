@@ -152,6 +152,36 @@ class DataLoadDefinitionTest {
     }
 
     @Test
+    void generatesSelectWithIdentifiersBeforeFieldsForPostgresFileAndBigQuery() {
+        DataLoadDefinition definition = new DataLoadDefinition();
+        definition.setTable("party");
+        definition.setMigrationKey("party_id");
+        definition.setIdentifiers(List.of("region_code"));
+        definition.setFields(List.of("party_name", "status"));
+
+        assertEquals(
+                "SELECT party_id AS \"MigrationKey\", region_code, party_name, status FROM party",
+                definition.resolveQueryStatement(DatasourceType.postgres)
+        );
+        assertEquals(
+                "SELECT party_id AS \"MigrationKey\", region_code, party_name, status FROM party",
+                definition.resolveQueryStatement(DatasourceType.file)
+        );
+        assertEquals(
+                "SELECT party_id AS MigrationKey, region_code, party_name, status FROM party",
+                definition.resolveQueryStatement(DatasourceType.bigquery)
+        );
+    }
+
+    @Test
+    void comparableFieldsDedupesIdentifiersAlreadyInFields() {
+        DataLoadDefinition definition = new DataLoadDefinition();
+        definition.setIdentifiers(List.of("region_code", "party_name"));
+        definition.setFields(List.of("party_name", "status"));
+        assertEquals(List.of("region_code", "party_name", "status"), definition.comparableFields());
+    }
+
+    @Test
     void generatesPostgresSelectForCompositeKey() {
         DataLoadDefinition definition = new DataLoadDefinition();
         definition.setTable("party");

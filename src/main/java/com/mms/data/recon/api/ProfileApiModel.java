@@ -13,6 +13,7 @@ public record ProfileApiModel(
         String targetType,
         String migrationKeyType,
         List<String> migrationKeyColumns,
+        List<String> identifiers,
         String hashingStrategy,
         String reconMode,
         List<String> conditionFields,

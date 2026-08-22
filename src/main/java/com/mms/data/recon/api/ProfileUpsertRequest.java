@@ -14,6 +14,7 @@ public class ProfileUpsertRequest {
     private Integer batchConcurrency;
     private ProfileDatasources datasources;
     private MigrationKeySpec migrationKey;
+    private List<String> identifiers;
     private ReconRunRequest recon;
     private SideRequest source;
     private SideRequest target;
@@ -36,6 +37,9 @@ public class ProfileUpsertRequest {
 
     public MigrationKeySpec getMigrationKey() { return migrationKey; }
     public void setMigrationKey(MigrationKeySpec migrationKey) { this.migrationKey = migrationKey; }
+
+    public List<String> getIdentifiers() { return identifiers; }
+    public void setIdentifiers(List<String> identifiers) { this.identifiers = identifiers; }
 
     public ReconRunRequest getRecon() { return recon; }
     public void setRecon(ReconRunRequest recon) { this.recon = recon; }

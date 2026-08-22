@@ -82,11 +82,14 @@ public class DuckDbExceptReconciler {
         }
 
         try (Connection connection = DriverManager.getConnection(jdbcUrl)) {
-            List<String> sourceFields = dataset.getSource() == null ? null : dataset.getSource().getFields();
-            List<String> targetFields = dataset.getTarget() == null ? null : dataset.getTarget().getFields();
+            List<String> sourceFields = comparableFieldNames(dataset.getSource());
+            List<String> targetFields = comparableFieldNames(dataset.getTarget());
+            HashingStrategy strategy = dataset.getHashingStrategy() == null
+                    ? HashingStrategy.TypeStrict
+                    : dataset.getHashingStrategy();
 
-            long sourceCount = loadSide(connection, "source_rows", sourceRows, sourceFields);
-            long targetCount = loadSide(connection, "target_rows", targetRows, targetFields);
+            long sourceCount = loadSide(connection, "source_rows", sourceRows, sourceFields, strategy);
+            long targetCount = loadSide(connection, "target_rows", targetRows, targetFields, strategy);
 
             try (Statement statement = connection.createStatement()) {
                 statement.execute("CREATE OR REPLACE TABLE src_except AS "
@@ -122,8 +125,8 @@ public class DuckDbExceptReconciler {
                 if (shouldPersistDetail(mode, status, srcPayload, tgtPayload, conditions, fieldNames)) {
                     details.add(new RecRecordRepository.RecRecord(
                             key,
-                            hashPayload(srcPayload),
-                            hashPayload(tgtPayload),
+                            hashPayload(srcPayload, strategy),
+                            hashPayload(tgtPayload, strategy),
                             status,
                             fieldDiffs(mode, srcPayload, tgtPayload, conditions, fieldNames),
                             srcPayload,
@@ -146,7 +149,7 @@ public class DuckDbExceptReconciler {
                     details.add(new RecRecordRepository.RecRecord(
                             entry.getKey(),
                             null,
-                            hashPayload(entry.getValue()),
+                            hashPayload(entry.getValue(), strategy),
                             RecRecordRepository.RecStatus.TARGET_ONLY,
                             fieldDiffs(mode, null, entry.getValue(), conditions, fieldNames),
                             null,
@@ -191,7 +194,8 @@ public class DuckDbExceptReconciler {
             Connection connection,
             String table,
             Flux<DataLoadDefinition.RawRow> rows,
-            List<String> fieldNames) throws SQLException {
+            List<String> fieldNames,
+            HashingStrategy strategy) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute("CREATE OR REPLACE TABLE " + table + " (migration_key VARCHAR, payload VARCHAR)");
         }
@@ -203,7 +207,7 @@ public class DuckDbExceptReconciler {
                 try {
                     appender.beginRow();
                     appender.append(row.migrationKey());
-                    appender.append(payload(row, fieldNames));
+                    appender.append(payload(row, fieldNames, strategy));
                     appender.endRow();
                     long n = count.incrementAndGet();
                     if (n % APPEND_FLUSH_EVERY == 0) {
@@ -244,37 +248,50 @@ public class DuckDbExceptReconciler {
         return out;
     }
 
-    static String payload(DataLoadDefinition.RawRow row, List<String> fieldNames) {
+    static String payload(DataLoadDefinition.RawRow row, List<String> fieldNames, HashingStrategy strategy) {
+        HashingStrategy effective = strategy == null ? HashingStrategy.TypeStrict : strategy;
         try {
-            return JSON.writeValueAsString(row.comparableValues());
+            List<Object> values = row.comparableValues();
+            List<Object> normalized = new ArrayList<>(values.size());
+            for (Object value : values) {
+                normalized.add(RowHasher.normalize(value, effective));
+            }
+            return JSON.writeValueAsString(normalized);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Unable to encode DuckDB row payload", e);
         }
     }
 
-    static String payload(DataLoadDefinition.RawRow row) {
-        return payload(row, null);
+    static String payload(DataLoadDefinition.RawRow row, List<String> fieldNames) {
+        return payload(row, fieldNames, HashingStrategy.TypeStrict);
     }
 
-    private static String hashPayload(String payload) {
+    static String payload(DataLoadDefinition.RawRow row) {
+        return payload(row, null, HashingStrategy.TypeStrict);
+    }
+
+    private static String hashPayload(String payload, HashingStrategy strategy) {
         if (payload == null) {
             return null;
         }
-        return RowHasher.hash(List.of(payload), HashingStrategy.TypeStrict);
+        HashingStrategy effective = strategy == null ? HashingStrategy.TypeStrict : strategy;
+        return RowHasher.hash(List.of(payload), effective);
+    }
+
+    private static List<String> comparableFieldNames(DataLoadDefinition side) {
+        if (side == null) {
+            return List.of();
+        }
+        List<String> comparable = side.comparableFields();
+        return comparable.isEmpty() ? List.of() : comparable;
     }
 
     private static List<String> resolveFieldNames(DatasetConfiguration dataset) {
-        if (dataset.getSource() != null
-                && dataset.getSource().getFields() != null
-                && !dataset.getSource().getFields().isEmpty()) {
-            return dataset.getSource().getFields();
+        List<String> fromSource = comparableFieldNames(dataset.getSource());
+        if (!fromSource.isEmpty()) {
+            return fromSource;
         }
-        if (dataset.getTarget() != null
-                && dataset.getTarget().getFields() != null
-                && !dataset.getTarget().getFields().isEmpty()) {
-            return dataset.getTarget().getFields();
-        }
-        return List.of();
+        return comparableFieldNames(dataset.getTarget());
     }
 
     private static boolean shouldPersistDetail(
@@ -315,6 +332,7 @@ public class DuckDbExceptReconciler {
             }
             Object l = index < left.size() ? left.get(index) : null;
             Object r = index < right.size() ? right.get(index) : null;
+            // Payloads are already strategy-normalized in {@link #payload}.
             if (!Objects.equals(l, r)) {
                 return true;
             }

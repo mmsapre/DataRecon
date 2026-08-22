@@ -342,6 +342,9 @@ public class RecCatalogService {
         if (request.getMigrationKey() != null) {
             profile.setMigrationKey(request.getMigrationKey());
         }
+        if (request.getIdentifiers() != null) {
+            profile.setIdentifiers(request.getIdentifiers());
+        }
         if (request.getRecon() != null) {
             applyRecon(profile.resolvedRecon(), request.getRecon());
         }

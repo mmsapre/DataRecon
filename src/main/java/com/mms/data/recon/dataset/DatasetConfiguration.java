@@ -14,6 +14,7 @@ public class DatasetConfiguration {
     private DataLoadDefinition target;
     private ProfileDatasources datasources = new ProfileDatasources();
     private MigrationKeySpec migrationKey;
+    private java.util.List<String> identifiers;
     private ReconSettings recon = new ReconSettings();
 
     private Integer batchSize;
@@ -100,10 +101,24 @@ public class DatasetConfiguration {
             target.applyCatalogDefaults(catalog);
         }
         MigrationKeySpec resolvedKey = resolveMigrationKey();
+        java.util.List<String> resolvedIdentifiers = resolveIdentifiers();
         source.initialize(id, DataLoadDefinition.Role.SOURCE, queryFileBaseDir);
         target.initialize(id, DataLoadDefinition.Role.TARGET, queryFileBaseDir);
         source.applyMigrationKey(resolvedKey);
         target.applyMigrationKey(resolvedKey);
+        source.applyIdentifiers(resolvedIdentifiers);
+        target.applyIdentifiers(resolvedIdentifiers);
+    }
+
+    private java.util.List<String> resolveIdentifiers() {
+        if (identifiers != null) {
+            return java.util.List.copyOf(identifiers);
+        }
+        java.util.List<String> fromSource = source.getIdentifiers();
+        java.util.List<String> fromTarget = target.getIdentifiers();
+        java.util.List<String> resolved = fromSource != null ? fromSource : fromTarget;
+        this.identifiers = resolved;
+        return resolved;
     }
 
     private void attachDatasources() {
@@ -163,6 +178,12 @@ public class DatasetConfiguration {
 
     public void setMigrationKey(String column) {
         this.migrationKey = column == null || column.isBlank() ? null : MigrationKeySpec.single(column);
+    }
+
+    public java.util.List<String> getIdentifiers() { return identifiers; }
+
+    public void setIdentifiers(java.util.List<String> identifiers) {
+        this.identifiers = identifiers == null ? null : new java.util.ArrayList<>(identifiers);
     }
 
     public ReconSettings getRecon() { return recon; }

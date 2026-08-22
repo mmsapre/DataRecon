@@ -29,8 +29,8 @@ public final class MongoDocumentMapper {
 
         if (fields == null || fields.isEmpty()) {
             throw new ConfigurationException(
-                    "Mongo load definitions must set `fields` in the same order as the PostgreSQL "
-                            + "SELECT columns after MigrationKey"
+                    "Mongo load definitions must set `fields` and/or `identifiers` in the same order "
+                            + "as the SQL SELECT columns after MigrationKey"
             );
         }
         if (migrationKey == null) {
