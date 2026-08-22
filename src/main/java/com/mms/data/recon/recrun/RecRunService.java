@@ -6,7 +6,6 @@ import com.mms.data.recon.dataset.DatasetRecService;
 import com.mms.data.recon.dataset.DomainConfiguration;
 import com.mms.data.recon.dataset.ReconMode;
 import com.mms.data.recon.dataset.ReconSettings;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import org.springframework.stereotype.Component;
 
@@ -149,21 +148,36 @@ public class RecRunService {
             boolean forceFull) {
         DomainConfiguration domain = configuration.requireDomain(domainId);
         long domainRunId = runRepository.createDomainRun(domainId);
-        return Flux.fromIterable(domain.getProfiles().entrySet())
-                .concatMap(entry -> {
-                    ReconSettings settings = entry.getValue().resolvedRecon().overlay(mode, conditionFields);
-                    return datasetRecService
-                            .reconcile(entry.getValue(), domainRunId, settings, forceFull)
-                            .map(runId -> Map.entry(entry.getKey(), runId));
-                })
-                .collectMap(Map.Entry::getKey, Map.Entry::getValue, LinkedHashMap::new)
+        if (domain.getProfiles().isEmpty()) {
+            runRepository.complete(domainRunId, RecRunRepository.RunSummary.of(List.of()));
+            return Mono.just(new DomainRunResult(domainId, domainRunId, Map.of()));
+        }
+
+        Map<String, Long> runIds = new LinkedHashMap<>();
+        List<Mono<Void>> completions = new java.util.ArrayList<>();
+        for (Map.Entry<String, DatasetConfiguration> entry : domain.getProfiles().entrySet()) {
+            ReconSettings settings = entry.getValue().resolvedRecon().overlay(mode, conditionFields);
+            DatasetRecService.StartedRun started = datasetRecService.startReconcile(
+                    entry.getValue(), domainRunId, settings, forceFull);
+            runIds.put(entry.getKey(), started.runId());
+            completions.add(started.completion().onErrorComplete());
+        }
+
+        Mono.when(completions)
                 .doOnSuccess(ignored -> completeDomainRun(domainRunId))
                 .doOnError(error -> runRepository.fail(domainRunId, error))
-                .map(runIds -> new DomainRunResult(domainId, domainRunId, runIds));
+                .onErrorComplete()
+                .subscribe();
+
+        return Mono.just(new DomainRunResult(domainId, domainRunId, Map.copyOf(runIds)));
     }
 
     public List<RecRunRepository.RunView> runs(String datasetId) {
         return runRepository.list(datasetId);
+    }
+
+    public RecRunRepository.RunView run(long runId) {
+        return runRepository.find(runId);
     }
 
     public List<RecRunRepository.RunView> domainRuns(String domainId) {

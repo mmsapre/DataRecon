@@ -5,4 +5,5 @@ import java.util.Map;
 public record DomainRunTriggerApiModel(
         String domainId,
         long domainRunId,
-        Map<String, Long> runIds) {}
+        Map<String, Long> runIds,
+        String status) {}

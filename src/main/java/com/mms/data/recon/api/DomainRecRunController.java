@@ -36,6 +36,8 @@ public class DomainRecRunController {
     }
 
     @PostMapping("/domains/{domainId}/runs")
+    @Operation(summary = "Trigger domain run (async)",
+            description = "Returns immediately with status RUNNING. Poll domain/profile run GETs until COMPLETED or FAILED.")
     public Mono<ResponseEntity<DomainRunTriggerApiModel>> runDomain(
             @PathVariable String domainId,
             @Nullable @RequestBody ReconRunRequest request) {
@@ -44,7 +46,8 @@ public class DomainRecRunController {
                         .body(new DomainRunTriggerApiModel(
                                 result.domainId(),
                                 result.domainRunId(),
-                                result.runIds())));
+                                result.runIds(),
+                                "RUNNING")));
     }
 
     @GetMapping("/domains/{domainId}/runs")
@@ -66,6 +69,8 @@ public class DomainRecRunController {
     }
 
     @PostMapping("/domains/{domainId}/profiles/{profileId}/runs")
+    @Operation(summary = "Trigger profile run (async)",
+            description = "Returns immediately with status RUNNING. Poll GET /api/runs/{runId} until COMPLETED or FAILED.")
     public Mono<ResponseEntity<ProfileRunTriggerApiModel>> runProfile(
             @PathVariable String domainId,
             @PathVariable String profileId,
@@ -78,20 +83,21 @@ public class DomainRecRunController {
                                 profileId,
                                 DatasetConfiguration.qualifiedId(domainId, profileId),
                                 requested == null ? null : requested.name(),
-                                id)));
+                                id,
+                                "RUNNING")));
     }
 
     @PostMapping("/profiles/runs/counts")
-    @Operation(summary = "Trigger COUNTS by profile name or id",
-            description = "Resolve profile by id, name, or domain.profile; force COUNTS mode")
+    @Operation(summary = "Trigger COUNTS by profile name or id (async)",
+            description = "Returns immediately with status RUNNING. Poll GET /api/runs/{runId} for COMPLETED/FAILED.")
     public Mono<ResponseEntity<ProfileRunTriggerApiModel>> runProfileCounts(
             @RequestBody ProfileTriggerRequest request) {
         return triggerByRef(request, ReconMode.COUNTS);
     }
 
     @PostMapping("/profiles/runs/details")
-    @Operation(summary = "Trigger MISMATCH_DETAILS by profile name or id",
-            description = "Resolve profile by id, name, or domain.profile; force MISMATCH_DETAILS mode")
+    @Operation(summary = "Trigger MISMATCH_DETAILS by profile name or id (async)",
+            description = "Returns immediately with status RUNNING. Poll GET /api/runs/{runId} for COMPLETED/FAILED.")
     public Mono<ResponseEntity<ProfileRunTriggerApiModel>> runProfileDetails(
             @RequestBody ProfileTriggerRequest request) {
         return triggerByRef(request, ReconMode.MISMATCH_DETAILS);
@@ -129,6 +135,17 @@ public class DomainRecRunController {
                 .filter(run -> active == null || active == run.active())
                 .map(this::api)
                 .toList();
+    }
+
+    @GetMapping("/runs/{runId}")
+    @Operation(summary = "Get run status",
+            description = "Poll after async trigger. status is RUNNING, COMPLETED, or FAILED.")
+    public RunApiModel run(@PathVariable long runId) {
+        RecRunRepository.RunView view = service.run(runId);
+        if (view == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown run: " + runId);
+        }
+        return api(view);
     }
 
     @GetMapping("/runs/{runId}/records")
@@ -176,7 +193,8 @@ public class DomainRecRunController {
                                 result.profileId(),
                                 result.id(),
                                 result.mode().name(),
-                                result.runId())))
+                                result.runId(),
+                                "RUNNING")))
                 .onErrorMap(IllegalArgumentException.class, this::statusFor);
     }
 

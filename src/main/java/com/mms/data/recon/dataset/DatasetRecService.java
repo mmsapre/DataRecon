@@ -52,7 +52,20 @@ public class DatasetRecService {
         return reconcile(dataset, domainRunId, recon, false);
     }
 
+    /**
+     * Creates a {@code RUNNING} run and starts reconciliation in the background.
+     * Returns the run id immediately; poll {@link RecRunRepository#find(long)} for
+     * {@code COMPLETED} / {@code FAILED}. {@link StartedRun#completion()} completes when work finishes.
+     */
     public Mono<Long> reconcile(
+            DatasetConfiguration dataset,
+            Long domainRunId,
+            ReconSettings recon,
+            boolean forceFull) {
+        return Mono.fromCallable(() -> startReconcile(dataset, domainRunId, recon, forceFull).runId());
+    }
+
+    public StartedRun startReconcile(
             DatasetConfiguration dataset,
             Long domainRunId,
             ReconSettings recon,
@@ -81,19 +94,19 @@ public class DatasetRecService {
                 baselineRunId
         );
 
-        // COUNTS: hash compare (no DuckDB). Detail modes: same field query → DuckDB EXCEPT.
-        if (settings.resolvedMode() == ReconMode.COUNTS) {
-            return hashReconcile(runId, dataset, settings)
-                    .doOnError(error -> runRepository.fail(runId, error))
-                    .thenReturn(runId);
-        }
-
-        RunScope effectiveScope = scope;
-        Long baseline = baselineRunId;
-        return detailReconcile(runId, dataset, settings, effectiveScope, baseline)
+        Mono<Void> work = (settings.resolvedMode() == ReconMode.COUNTS
+                ? hashReconcile(runId, dataset, settings)
+                : detailReconcile(runId, dataset, settings, scope, baselineRunId))
+                .subscribeOn(Schedulers.boundedElastic())
                 .doOnError(error -> runRepository.fail(runId, error))
-                .thenReturn(runId);
+                .cache();
+
+        // Start processing; callers can await {@link StartedRun#completion()} if needed.
+        work.onErrorComplete().subscribe();
+        return new StartedRun(runId, work.then());
     }
+
+    public record StartedRun(long runId, Mono<Void> completion) {}
 
     private Mono<Void> hashReconcile(long runId, DatasetConfiguration dataset, ReconSettings settings) {
         Mono<Map<String, LoadedRow>> sourceMono =

@@ -59,6 +59,7 @@ class RecRunServiceTest {
 
         Long runId = service.runProfile("party", "pg-pg").block();
         assertEquals(1L, runId);
+        InMemoryRecStores.awaitTerminal(runs, runId);
         assertEquals(1, service.profileRuns("party", "pg-pg").size());
         assertEquals("pg-pg", service.profileRuns("party", "pg-pg").get(0).profileId());
         assertTrue(service.profileRuns("party", "pg-pg").get(0).active());
@@ -93,6 +94,7 @@ class RecRunServiceTest {
         assertEquals(2L, result.runIds().get("pg-pg"));
         assertEquals(3L, result.runIds().get("pg-mongo"));
 
+        InMemoryRecStores.awaitTerminal(runs, result.domainRunId());
         RecRunService.DomainRunDetail detail = service.domainRun("party", result.domainRunId());
         assertNull(detail.domain().profileId());
         assertEquals("COMPLETED", detail.domain().status());
@@ -120,7 +122,9 @@ class RecRunServiceTest {
         RecRunService service = new RecRunService(configuration, recService, runs, records);
 
         Long first = service.runProfile("party", "pg-pg").block();
+        InMemoryRecStores.awaitTerminal(runs, first);
         Long second = service.runProfile("party", "pg-pg").block();
+        InMemoryRecStores.awaitTerminal(runs, second);
 
         assertFalse(runs.find(first).active());
         assertTrue(runs.find(second).active());
@@ -161,11 +165,13 @@ class RecRunServiceTest {
 
         RecRunService.ProfileTriggerResult counts = service.runResolvedProfile(
                 null, "pg-pg", com.mms.data.recon.dataset.ReconMode.COUNTS, null, false).block();
+        InMemoryRecStores.awaitTerminal(runs, counts.runId());
         assertEquals(com.mms.data.recon.dataset.ReconMode.COUNTS, counts.mode());
         assertEquals("COUNTS", runs.find(counts.runId()).reconMode());
 
         RecRunService.ProfileTriggerResult details = service.runResolvedProfile(
                 "party", "pg-pg", com.mms.data.recon.dataset.ReconMode.MISMATCH_DETAILS, null, false).block();
+        InMemoryRecStores.awaitTerminal(runs, details.runId());
         assertEquals(com.mms.data.recon.dataset.ReconMode.MISMATCH_DETAILS, details.mode());
         assertEquals("MISMATCH_DETAILS", runs.find(details.runId()).reconMode());
     }

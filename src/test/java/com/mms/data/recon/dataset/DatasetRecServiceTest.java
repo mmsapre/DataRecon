@@ -18,7 +18,8 @@ class DatasetRecServiceTest {
         InMemoryRecStores.MemoryRecRecordRepository records = new InMemoryRecStores.MemoryRecRecordRepository();
         DatasetRecService service = new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler());
 
-        Long runId = service.reconcile(InMemoryRecStores.dataset("empty", List.of(), List.of())).block();
+        long runId = InMemoryRecStores.awaitReconcile(
+                service, InMemoryRecStores.dataset("empty", List.of(), List.of()));
 
         assertEquals(1L, runId);
         assertEquals(0, records.inserted.size());
@@ -34,10 +35,9 @@ class DatasetRecServiceTest {
                 .put("target", List.of());
         InMemoryRecStores.MemoryRecRunRepository runs = new InMemoryRecStores.MemoryRecRunRepository();
         InMemoryRecStores.MemoryRecRecordRepository records = new InMemoryRecStores.MemoryRecRecordRepository();
+        DatasetRecService service = new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler());
 
-        new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler())
-                .reconcile(InMemoryRecStores.dataset("src-only", List.of(), List.of()))
-                .block();
+        InMemoryRecStores.awaitReconcile(service, InMemoryRecStores.dataset("src-only", List.of(), List.of()));
 
         assertEquals(1, records.inserted.size());
         assertEquals(com.mms.data.recon.recrun.RecRecordRepository.RecStatus.SOURCE_ONLY, records.inserted.get(0).status());
@@ -51,10 +51,9 @@ class DatasetRecServiceTest {
                 .put("target", List.of(InMemoryRecStores.row("abc", "def")));
         InMemoryRecStores.MemoryRecRunRepository runs = new InMemoryRecStores.MemoryRecRunRepository();
         InMemoryRecStores.MemoryRecRecordRepository records = new InMemoryRecStores.MemoryRecRecordRepository();
+        DatasetRecService service = new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler());
 
-        new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler())
-                .reconcile(InMemoryRecStores.dataset("tgt-only", List.of(), List.of()))
-                .block();
+        InMemoryRecStores.awaitReconcile(service, InMemoryRecStores.dataset("tgt-only", List.of(), List.of()));
 
         assertEquals(com.mms.data.recon.recrun.RecRecordRepository.RecStatus.TARGET_ONLY, records.inserted.get(0).status());
         assertEquals(1, runs.lastSummary.targetOnly());
@@ -67,10 +66,9 @@ class DatasetRecServiceTest {
                 .put("target", List.of(InMemoryRecStores.row("abc", "def")));
         InMemoryRecStores.MemoryRecRunRepository runs = new InMemoryRecStores.MemoryRecRunRepository();
         InMemoryRecStores.MemoryRecRecordRepository records = new InMemoryRecStores.MemoryRecRecordRepository();
+        DatasetRecService service = new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler());
 
-        new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler())
-                .reconcile(InMemoryRecStores.dataset("matched", List.of(), List.of()))
-                .block();
+        InMemoryRecStores.awaitReconcile(service, InMemoryRecStores.dataset("matched", List.of(), List.of()));
 
         assertEquals(0, records.inserted.size());
         assertEquals(1, runs.lastSummary.matched());
@@ -83,10 +81,9 @@ class DatasetRecServiceTest {
                 .put("target", List.of(InMemoryRecStores.row("abc", "right")));
         InMemoryRecStores.MemoryRecRunRepository runs = new InMemoryRecStores.MemoryRecRunRepository();
         InMemoryRecStores.MemoryRecRecordRepository records = new InMemoryRecStores.MemoryRecRecordRepository();
+        DatasetRecService service = new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler());
 
-        new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler())
-                .reconcile(InMemoryRecStores.dataset("mismatch", List.of(), List.of()))
-                .block();
+        InMemoryRecStores.awaitReconcile(service, InMemoryRecStores.dataset("mismatch", List.of(), List.of()));
 
         assertEquals(com.mms.data.recon.recrun.RecRecordRepository.RecStatus.MISMATCHED, records.inserted.get(0).status());
         assertEquals(1, runs.lastSummary.mismatched());
@@ -101,8 +98,9 @@ class DatasetRecServiceTest {
         InMemoryRecStores.MemoryRecRecordRepository records = new InMemoryRecStores.MemoryRecRecordRepository();
         DatasetConfiguration dataset = InMemoryRecStores.dataset("counts", List.of(), List.of());
         dataset.getRecon().setMode(ReconMode.COUNTS);
+        DatasetRecService service = new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler());
 
-        new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler()).reconcile(dataset).block();
+        InMemoryRecStores.awaitReconcile(service, dataset);
 
         assertEquals(0, records.inserted.size());
         assertEquals(1, runs.lastSummary.mismatched());
@@ -122,8 +120,9 @@ class DatasetRecServiceTest {
         dataset.getTarget().setFields(List.of("party_name", "status"));
         dataset.getRecon().setMode(ReconMode.FIELD_DETAILS);
         dataset.getRecon().setConditionFields(List.of("party_name", "status"));
+        DatasetRecService service = new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler());
 
-        new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler()).reconcile(dataset).block();
+        InMemoryRecStores.awaitReconcile(service, dataset);
 
         assertEquals(1, records.inserted.size());
         assertEquals(
@@ -145,8 +144,9 @@ class DatasetRecServiceTest {
         dataset.getTarget().setFields(List.of("party_name", "status"));
         dataset.getRecon().setMode(ReconMode.MISMATCH_DETAILS);
         dataset.getRecon().setConditionFields(List.of("party_name"));
+        DatasetRecService service = new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler());
 
-        new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler()).reconcile(dataset).block();
+        InMemoryRecStores.awaitReconcile(service, dataset);
 
         assertEquals(0, records.inserted.size());
         assertEquals(1, runs.lastSummary.mismatched());
@@ -160,10 +160,12 @@ class DatasetRecServiceTest {
         InMemoryRecStores.MemoryRecRecordRepository records = new InMemoryRecStores.MemoryRecRecordRepository();
         DatasetRecService service = new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler());
 
-        assertThrows(RuntimeException.class, () ->
-                service.reconcile(InMemoryRecStores.dataset("fail", List.of(), List.of())).block());
+        DatasetRecService.StartedRun started = service.startReconcile(
+                InMemoryRecStores.dataset("fail", List.of(), List.of()), null, null, false);
+        assertThrows(RuntimeException.class, () -> started.completion().block());
         assertEquals(1, runs.failures.size());
         assertEquals("Could not connect to database", runs.failures.get(1L));
+        assertEquals("FAILED", runs.find(started.runId()).status());
     }
 
     @Test
@@ -179,8 +181,9 @@ class DatasetRecServiceTest {
         dataset.getTarget().setCollection("party");
         dataset.getRecon().setMode(ReconMode.FIELD_DETAILS);
         dataset.getRecon().setConditionFields(List.of("party_name", "status"));
+        DatasetRecService service = new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler());
 
-        new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler()).reconcile(dataset).block();
+        InMemoryRecStores.awaitReconcile(service, dataset);
 
         RecRunRepository.RunView stored = runs.find(1L);
         assertEquals("SELECT party_id AS \"MigrationKey\", party_name FROM landing.party", stored.sourceQuery());
@@ -188,5 +191,20 @@ class DatasetRecServiceTest {
         assertEquals(List.of("party_name", "status"), stored.conditionFields());
         assertEquals(ReconMode.FIELD_DETAILS.name(), stored.reconMode());
         assertEquals(1, runs.lastSummary.matched());
+    }
+
+    @Test
+    void reconcileReturnsRunIdWhileStillRunningOrCompleted() {
+        InMemoryRecStores.ScriptedRowLoader loader = new InMemoryRecStores.ScriptedRowLoader()
+                .put("source", List.of(InMemoryRecStores.row("k", "v")))
+                .put("target", List.of(InMemoryRecStores.row("k", "v")));
+        InMemoryRecStores.MemoryRecRunRepository runs = new InMemoryRecStores.MemoryRecRunRepository();
+        InMemoryRecStores.MemoryRecRecordRepository records = new InMemoryRecStores.MemoryRecRecordRepository();
+        DatasetRecService service = new DatasetRecService(loader, runs, records, new DuckDbExceptReconciler());
+
+        Long runId = service.reconcile(InMemoryRecStores.dataset("async", List.of(), List.of())).block();
+        assertEquals(1L, runId);
+        InMemoryRecStores.awaitTerminal(runs, runId);
+        assertEquals("COMPLETED", runs.find(runId).status());
     }
 }

@@ -16,6 +16,30 @@ public final class InMemoryRecStores {
 
     private InMemoryRecStores() {}
 
+    /** Start async reconcile and block until COMPLETED/FAILED (for unit tests). */
+    public static long awaitReconcile(DatasetRecService service, DatasetConfiguration dataset) {
+        DatasetRecService.StartedRun started = service.startReconcile(
+                dataset, null, dataset.resolvedRecon(), false);
+        started.completion().block();
+        return started.runId();
+    }
+
+    public static void awaitTerminal(RecRunRepository runs, long runId) {
+        for (int i = 0; i < 400; i++) {
+            RecRunRepository.RunView view = runs.find(runId);
+            if (view != null && !"RUNNING".equals(view.status())) {
+                return;
+            }
+            try {
+                Thread.sleep(25);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(e);
+            }
+        }
+        throw new AssertionError("Timed out waiting for run " + runId + " to leave RUNNING");
+    }
+
     public static DatasetConfiguration dataset(
             String id,
             List<DataLoadDefinition.RawRow> sourceRows,
